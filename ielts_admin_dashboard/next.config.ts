@@ -17,8 +17,6 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // firebase-admin uses Node.js built-ins — mark as external for Server Components
-  serverExternalPackages: ["firebase-admin"],
 };
 
 export default nextConfig;
