@@ -1,0 +1,27 @@
+{
+  "firestore": {
+    "rules": "firebase/firestore.rules",
+    "indexes": "firebase/firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "speakup-ai-prod",
+          "appId": "1:955029235432:android:184afb5ddeeacb5db54b5d",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "speakup-ai-prod",
+          "configurations": {
+            "android": "1:955029235432:android:184afb5ddeeacb5db54b5d",
+            "ios": "1:955029235432:ios:cca8dd74eccc9c1bb54b5d",
+            "web": "1:955029235432:web:bc6059e484c81adbb54b5d"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+## Release Signing Setup
+
+Before running `flutter build apk --release` or `flutter build appbundle --release`,
+you must create a keystore and fill in this file.
+
+**Step 1 — Generate a keystore (run once):**
+```
+keytool -genkey -v -keystore upload-keystore.jks -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+Place the resulting `upload-keystore.jks` in the `android/` directory.
+
+**Step 2 — Fill in this key.properties file:**
+```
+storePassword=<your-store-password>
+keyPassword=<your-key-password>
+keyAlias=upload
+storeFile=../upload-keystore.jks
+```
+
+**Step 3 — Keep key.properties OUT of git:**
+It is already listed in android/.gitignore.
+
+---
+
+storePassword=FILL_IN
+keyPassword=FILL_IN
+keyAlias=upload
+storeFile=../upload-keystore.jks

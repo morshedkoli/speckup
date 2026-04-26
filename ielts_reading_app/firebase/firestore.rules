@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Per-user data: owner only ────────────────────────────────────────────
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      match /{subcol}/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // ─── Shared reading passages ──────────────────────────────────────────────
+    // Read: any authenticated user
+    // Write: Admin SDK only (bypasses rules) — deny all client writes
+    match /shared_passages/{passageId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ─── Shared writing tasks ─────────────────────────────────────────────────
+    match /shared_writing_tasks/{taskId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ─── Shared vocabulary ────────────────────────────────────────────────────
+    match /shared_vocabulary/{wordId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ─── Diagnostic passages ─────────────────────────────────────────────────
+    match /shared_diagnostic_passages/{passageId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ─── Word definitions cache ───────────────────────────────────────────────
+    match /wordDefinitions/{word} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // ─── Admin settings (AI config, etc.) ────────────────────────────────────
+    // Only accessible via Admin SDK (server-side) — deny all client access
+    match /admin_settings/{docId} {
+      allow read, write: if false;
+    }
+
+    // ─── Catch-all: deny everything else ─────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

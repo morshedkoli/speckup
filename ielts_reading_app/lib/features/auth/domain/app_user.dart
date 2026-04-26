@@ -1,0 +1,2 @@
+// freezed model.
+// TODO: implement

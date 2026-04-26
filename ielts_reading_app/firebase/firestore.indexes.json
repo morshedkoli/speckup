@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "shared_passages",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "lastUsedAt", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

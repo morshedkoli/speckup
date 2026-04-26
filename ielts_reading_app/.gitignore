@@ -1,0 +1,56 @@
+# Flutter
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Android
+**/android/.gradle/
+**/android/captures/
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+**/android/key.properties
+**/android/*.jks
+
+# iOS
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral
+**/ios/Flutter/app.flx
+**/ios/Flutter/app.zip
+**/ios/Flutter/flutter_assets/
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+# Codegen
+**/*.g.dart
+**/*.freezed.dart
+**/*.gr.dart
+
+# Firebase (keep options only for local dev; ignore sensitive config)
+google-services.json
+GoogleService-Info.plist
+firebase_app_id_file.json
+
+# Env
+.env
+.env.local
+
+# Misc
+*.log
+.DS_Store
