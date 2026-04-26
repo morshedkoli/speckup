@@ -1,11 +1,12 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 async function tryGetAdminDb() {
   try {
-    const { getAdminDb } = await import('@/lib/firebase-admin');
     return getAdminDb();
-  } catch {
+  } catch (err: any) {
+    console.error('Failed to init admin:', err);
     return null;
   }
 }

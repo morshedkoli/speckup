@@ -1,5 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 // POST /api/backfill
 // Copies the `type` field into `questionType` for every shared_passages doc
