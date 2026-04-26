@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 
 async function tryGetAdminDb() {
@@ -50,3 +51,4 @@ export async function GET() {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { VocabularyWord } from '@/types';
 
@@ -132,3 +133,4 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: errorMessage(err) }, { status: 500 });
   }
 }
+

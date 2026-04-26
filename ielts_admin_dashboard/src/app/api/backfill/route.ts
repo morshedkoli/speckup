@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 
 // POST /api/backfill
@@ -42,3 +43,4 @@ export async function POST() {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

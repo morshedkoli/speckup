@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 
 const COL = 'shared_passages';
@@ -81,3 +82,4 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+

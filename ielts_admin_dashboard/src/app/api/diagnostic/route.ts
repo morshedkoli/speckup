@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 
 const COL = 'shared_diagnostic_passages';
@@ -69,3 +70,4 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: errorMessage(err) }, { status: 500 });
   }
 }
+

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { buildChartImagePrompt, generateAndHostChartImage, uploadToImgBB } from '@/lib/imagen';
 import { generateImageWithCloudflare, buildCloudflareChartPrompt } from '@/lib/cloudflare-image';
@@ -100,3 +101,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
