@@ -6,6 +6,9 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/router/route_names.dart';
 import '../../../core/presentation/widgets/base_scaffold.dart';
 import '../../../core/presentation/widgets/glass_container.dart';
+import '../../../core/presentation/widgets/animated_touch_response.dart';
+import '../../../core/presentation/widgets/shimmer_box.dart';
+import '../../../core/theme/app_colors.dart';
 import '../domain/models.dart';
 import '../providers/reading_providers.dart';
 
@@ -87,7 +90,6 @@ class LibraryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final typesAsync = ref.watch(availableTypesProvider);
 
     return BaseScaffold(
@@ -102,42 +104,68 @@ class LibraryPage extends ConsumerWidget {
         ],
       ),
       body: typesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => ListView.builder(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          itemCount: 6,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 8, bottom: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerBox(width: 200, height: 28),
+                    SizedBox(height: 8),
+                    ShimmerBox(width: 120, height: 16),
+                  ],
+                ),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: GlassContainer(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const ShimmerBox(width: 42, height: 42, radius: 12),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          ShimmerBox(width: double.infinity, height: 16),
+                          SizedBox(height: 6),
+                          ShimmerBox(width: 150, height: 12),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const ShimmerBox(width: 50, height: 24, radius: 20),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
         error: (err, _) => _ErrorView(
           error: err.toString(),
           onRetry: () => ref.invalidate(availableTypesProvider),
         ),
         data: (counts) {
-          // Only show types that exist in the database (count > 0)
           final available = counts.entries.toList()
             ..sort((a, b) => a.key.index.compareTo(b.key.index));
 
-          if (available.isEmpty) {
-            return const _EmptyState();
-          }
+          if (available.isEmpty) return const _EmptyState();
 
           return ListView.builder(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             itemCount: available.length + 1,
             itemBuilder: (context, index) {
               if (index == 0) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Choose a Question Type',
-                      style: theme.textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
+                return _Header(
+                  title: 'Choose a Question Type',
+                  subtitle:
                       '${available.length} type${available.length == 1 ? '' : 's'} available',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.55),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
                 );
               }
 
@@ -147,11 +175,11 @@ class LibraryPage extends ConsumerWidget {
                     title: entry.key.name,
                     subtitle: '',
                     icon: LucideIcons.book,
-                    color: const Color(0xFF6366F1),
+                    color: AppColors.primary,
                   );
 
               return Padding(
-                padding: const EdgeInsets.only(bottom: 14),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: _TypeCard(
                   meta: meta,
                   questionType: entry.key,
@@ -161,6 +189,41 @@ class LibraryPage extends ConsumerWidget {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+// ─── Header ───────────────────────────────────────────────────────────────────
+
+class _Header extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _Header({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+          ),
+        ],
       ),
     );
   }
@@ -181,90 +244,111 @@ class _TypeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final hasTasks = count > 0;
 
-    return InkWell(
-      onTap: () => context.pushNamed(
-        RouteNames.passage,
-        pathParameters: {'type': questionType.name},
-      ),
-      borderRadius: BorderRadius.circular(20),
-      child: GlassContainer(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: meta.color.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(meta.icon, size: 26, color: meta.color),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    meta.title,
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    meta.subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _CountBadge(count: count, color: meta.color),
-                const SizedBox(height: 6),
-                Icon(
-                  LucideIcons.chevronRight,
-                  size: 16,
-                  color: theme.colorScheme.onSurface.withOpacity(0.3),
+    return AnimatedTouchResponse(
+      onTap: hasTasks
+          ? () => context.pushNamed(
+                RouteNames.passage,
+                pathParameters: {'type': questionType.name},
+              )
+          : null,
+      child: Opacity(
+        opacity: hasTasks ? 1.0 : 0.4,
+        child: GlassContainer(
+          padding: const EdgeInsets.all(16),
+          accentColor: meta.color,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: meta.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
-            ),
-          ],
+                child: Icon(meta.icon, size: 22, color: meta.color),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      meta.title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      meta.subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              _CountBadge(count: count, color: meta.color),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ─── Badges & empty states ────────────────────────────────────────────────────
+// ─── Count badge ──────────────────────────────────────────────────────────────
 
 class _CountBadge extends StatelessWidget {
   final int count;
   final Color color;
+
   const _CountBadge({required this.count, required this.color});
 
   @override
   Widget build(BuildContext context) {
+    if (count == 0) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppColors.coral.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.ban, size: 10, color: AppColors.coral),
+            const SizedBox(width: 4),
+            Text(
+              'None',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.coral,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final badgeColor = count >= 5 ? AppColors.accent : AppColors.gold;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: badgeColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.layers, size: 10, color: color),
+          Icon(LucideIcons.layers, size: 10, color: badgeColor),
           const SizedBox(width: 4),
           Text(
-            '$count',
+            '$count left',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: color,
+                  color: badgeColor,
                   fontWeight: FontWeight.w700,
                 ),
           ),
@@ -274,32 +358,40 @@ class _CountBadge extends StatelessWidget {
   }
 }
 
+// ─── Empty/Error states ────────────────────────────────────────────────────────
+
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(LucideIcons.bookX,
-                size: 64,
-                color: theme.colorScheme.onSurface.withOpacity(0.2)),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.bg3,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(LucideIcons.bookX,
+                  size: 48, color: AppColors.textMuted),
+            ),
             const SizedBox(height: 20),
             Text('No Passages Available',
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    )),
             const SizedBox(height: 10),
             Text(
               'The admin hasn\'t uploaded any passages yet.\nCheck back later.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.55),
-              ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
             ),
           ],
         ),
@@ -311,30 +403,38 @@ class _EmptyState extends StatelessWidget {
 class _ErrorView extends StatelessWidget {
   final String error;
   final VoidCallback onRetry;
+
   const _ErrorView({required this.error, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(LucideIcons.cloudOff,
-                size: 56, color: theme.colorScheme.error.withOpacity(0.7)),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.coral.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(LucideIcons.cloudOff,
+                  size: 48, color: AppColors.coral),
+            ),
             const SizedBox(height: 20),
             Text('Could not load passages',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    )),
             const SizedBox(height: 8),
             Text(
               error,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
-              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
@@ -356,6 +456,7 @@ class _TypeMeta {
   final String subtitle;
   final IconData icon;
   final Color color;
+
   const _TypeMeta({
     required this.title,
     required this.subtitle,

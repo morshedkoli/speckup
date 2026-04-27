@@ -7,6 +7,7 @@ import '../../features/diagnostic/data/diagnostic_repository.dart';
 import '../../features/diagnostic/presentation/diagnostic_intro_page.dart';
 import '../../features/diagnostic/presentation/diagnostic_result_page.dart';
 import '../../features/diagnostic/presentation/diagnostic_test_page.dart';
+import '../../features/diagnostic/providers/diagnostic_provider.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/reading/presentation/library_page.dart';
 import '../../features/reading/presentation/passage_page.dart';
@@ -31,6 +32,8 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 GoRouter appRouter(Ref ref) {
   final authState = ref.watch(authStateChangesProvider);
   final diagnosticState = ref.watch(diagnosticCompletedProvider);
+  final diagnosticSubmittedThisSession =
+      ref.watch(diagnosticControllerProvider).isSubmitted;
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -62,9 +65,17 @@ GoRouter appRouter(Ref ref) {
         return RoutePaths.diagnosticIntro;
       }
 
+      if (!diagnosticCompleted &&
+          state.uri.path == RoutePaths.diagnosticResult &&
+          !diagnosticSubmittedThisSession) {
+        return RoutePaths.diagnosticIntro;
+      }
+
       if (diagnosticCompleted &&
           (state.uri.path == RoutePaths.diagnosticIntro ||
-              state.uri.path == RoutePaths.diagnosticTest)) {
+              state.uri.path == RoutePaths.diagnosticTest ||
+              (state.uri.path == RoutePaths.diagnosticResult &&
+                  !diagnosticSubmittedThisSession))) {
         return RoutePaths.home;
       }
 

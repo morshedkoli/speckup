@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/glass_styles.dart';
+import '../../theme/app_colors.dart';
 
 class BaseScaffold extends StatelessWidget {
   final Widget body;
@@ -19,11 +19,9 @@ class BaseScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
     return Container(
-      decoration: BoxDecoration(
-        gradient: isDark ? GlassStyles.darkMeshGradient : GlassStyles.lightMeshGradient,
+      decoration: const BoxDecoration(
+        gradient: AppColors.darkMesh,
       ),
       child: Scaffold(
         appBar: appBar,

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../services/firebase/firebase_providers.dart';
 import '../data/shared_writing_task_repository.dart';
 import '../data/writing_assignment_repository.dart';
+import '../data/writing_evaluation_service.dart';
 import '../data/writing_history_repository.dart';
 import '../domain/models.dart';
 
@@ -81,16 +82,28 @@ class WritingSessionController extends Notifier<WritingSessionState> {
   Future<void> submitWriting() async {
     if (state.task == null || state.isSubmitted) return;
 
+    final task = state.task!;
+    final userResponse = state.userResponse;
+    final user = ref.read(currentUserProvider);
+    final userKey = user?.uid ?? 'guest';
+
+    // ── 1. Get AI evaluation ────────────────────────────────────────────────
+    final evaluationService = ref.read(writingEvaluationServiceProvider);
+    final evaluation = await evaluationService.evaluate(
+      task: task,
+      userResponse: userResponse,
+    );
+
+    // ── 2. Mark session completed with evaluation ───────────────────────────
     final completedState = state.copyWith(
       isSubmitted: true,
       status: WritingSessionStatus.completed,
       completedAt: DateTime.now(),
+      evaluation: evaluation,
     );
     state = completedState;
 
-    final user = ref.read(currentUserProvider);
-    final userKey = user?.uid ?? 'guest';
-
+    // ── 3. Persist to history & mark assignment done ────────────────────────
     if (user != null) {
       await ref
           .read(writingHistoryRepositoryProvider)
@@ -102,7 +115,6 @@ class WritingSessionController extends Notifier<WritingSessionState> {
           uid: user?.uid,
           session: completedState,
         );
-
   }
 
   void clearSession() {

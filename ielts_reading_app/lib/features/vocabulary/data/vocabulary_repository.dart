@@ -20,7 +20,7 @@ class VocabularyRepository {
         .collection('shared_vocabulary')
         .orderBy('createdAt', descending: true)
         .limit(100)
-        .get();
+        .get(const GetOptions(source: Source.serverAndCache));
 
     final words = <VocabularyWord>[];
     for (final doc in snapshot.docs) {
@@ -37,7 +37,7 @@ class VocabularyRepository {
         .doc(uid)
         .collection('learned_words')
         .orderBy('learnedAt', descending: true)
-        .get();
+        .get(const GetOptions(source: Source.serverAndCache));
 
     return snapshot.docs
         .map((doc) => VocabularyWord.fromMap(doc.id, doc.data()))
@@ -57,11 +57,22 @@ class VocabularyRepository {
   }
 
   Future<Set<String>> _getLearnedIds(String uid) async {
+    try {
+      final snap = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('learned_words')
+          .get(const GetOptions(source: Source.cache));
+      if (snap.docs.isNotEmpty) {
+        return snap.docs.map((doc) => doc.id).toSet();
+      }
+    } catch (_) {}
+    
     final snapshot = await _firestore
         .collection('users')
         .doc(uid)
         .collection('learned_words')
-        .get();
+        .get(const GetOptions(source: Source.serverAndCache));
     return snapshot.docs.map((doc) => doc.id).toSet();
   }
 }

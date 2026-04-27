@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 
+/// A widget that adds a subtle scale-down animation on tap.
+/// When [onTap] is null the widget is non-interactive (no animation/gesture).
 class AnimatedTouchResponse extends StatefulWidget {
   final Widget child;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final double scaleTarget;
 
   const AnimatedTouchResponse({
     super.key,
     required this.child,
-    required this.onTap,
-    this.scaleTarget = 0.95,
+    this.onTap,
+    this.scaleTarget = 0.96,
   });
 
   @override
   State<AnimatedTouchResponse> createState() => _AnimatedTouchResponseState();
 }
 
-class _AnimatedTouchResponseState extends State<AnimatedTouchResponse> with SingleTickerProviderStateMixin {
+class _AnimatedTouchResponseState extends State<AnimatedTouchResponse>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -24,7 +27,7 @@ class _AnimatedTouchResponseState extends State<AnimatedTouchResponse> with Sing
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 150),
+      duration: const Duration(milliseconds: 120),
       lowerBound: widget.scaleTarget,
       upperBound: 1.0,
       value: 1.0,
@@ -37,16 +40,24 @@ class _AnimatedTouchResponseState extends State<AnimatedTouchResponse> with Sing
     super.dispose();
   }
 
-  void _onTapDown(TapDownDetails details) => _controller.reverse();
-  void _onTapCancel() => _controller.forward();
-  
+  void _onTapDown(TapDownDetails details) {
+    if (widget.onTap != null) _controller.reverse();
+  }
+
+  void _onTapCancel() {
+    if (widget.onTap != null) _controller.forward();
+  }
+
   void _onTapUp(TapUpDetails details) {
+    if (widget.onTap == null) return;
     _controller.forward();
-    widget.onTap();
+    widget.onTap!();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.onTap == null) return widget.child;
+
     return GestureDetector(
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,

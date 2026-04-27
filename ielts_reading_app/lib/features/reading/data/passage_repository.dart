@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../core/storage/cache_service.dart';
+import '../../../core/storage/hive_boxes.dart';
 import '../domain/models.dart';
 
 part 'passage_repository.g.dart';
@@ -9,15 +11,31 @@ part 'passage_repository.g.dart';
 /// collection. No seen-tracking, no assignment logic — clean and simple.
 class PassageRepository {
   final FirebaseFirestore _db;
+  final CacheService _cache;
 
-  PassageRepository(this._db);
+  PassageRepository(this._db, this._cache);
+
+  static const _countsCacheTtl = Duration(hours: 24);
 
   // ─── Types available in the database ────────────────────────────────────────
 
   /// Returns the set of [QuestionType]s that have at least one passage in
   /// Firestore, together with the count of passages for each type.
   Future<Map<QuestionType, int>> getAvailableTypes() async {
-    final snapshot = await _db.collection('shared_passages').get();
+    final cacheKey = 'passage_types_all';
+    
+    // 1. Check cache
+    final cached = _cache.get<Map<String, dynamic>>(cacheKey);
+    if (cached != null) {
+      return cached.map(
+        (k, v) => MapEntry(parseQuestionType(k)!, (v as num).toInt()),
+      )..removeWhere((k, _) => k == null);
+    }
+
+    // 2. Fetch from DB
+    final snapshot = await _db
+        .collection('shared_passages')
+        .get(const GetOptions(source: Source.serverAndCache));
 
     final counts = <QuestionType, int>{};
     for (final doc in snapshot.docs) {
@@ -25,6 +43,14 @@ class PassageRepository {
       if (type == null) continue;
       counts[type] = (counts[type] ?? 0) + 1;
     }
+
+    // 3. Cache it
+    await _cache.set(
+      cacheKey,
+      counts.map((k, v) => MapEntry(k.name, v)),
+      ttl: _countsCacheTtl,
+    );
+
     return counts;
   }
 
@@ -38,7 +64,7 @@ class PassageRepository {
         .collection('shared_passages')
         .where('questionType', isEqualTo: type.name)
         .limit(20)
-        .get();
+        .get(const GetOptions(source: Source.serverAndCache));
 
     // Fall back to legacy `type` field if nothing found
     if (snapshot.docs.isEmpty) {
@@ -46,13 +72,16 @@ class PassageRepository {
           .collection('shared_passages')
           .where('type', isEqualTo: type.name)
           .limit(20)
-          .get();
+          .get(const GetOptions(source: Source.serverAndCache));
     }
 
     // Last-resort compatibility for admin-created legacy docs that are visible
     // in the dashboard but missing both top-level type fields.
     if (snapshot.docs.isEmpty) {
-      final allDocs = await _db.collection('shared_passages').limit(250).get();
+      final allDocs = await _db
+          .collection('shared_passages')
+          .limit(250)
+          .get(const GetOptions(source: Source.serverAndCache));
       for (final doc in allDocs.docs) {
         if (_readQuestionType(doc.data()) != type) continue;
         try {
@@ -122,5 +151,5 @@ class PassageRepository {
 
 @riverpod
 PassageRepository passageRepository(Ref ref) {
-  return PassageRepository(FirebaseFirestore.instance);
+  return PassageRepository(FirebaseFirestore.instance, CacheService(HiveBoxes.cache));
 }

@@ -15,6 +15,11 @@ class DiagnosticController extends _$DiagnosticController {
   Future<void> loadRandomDiagnostic() async {
     if (state.isLoading || state.isSubmitted) return;
 
+    if (await _hasCompletedDiagnostic()) {
+      state = state.copyWith(isLoading: false);
+      return;
+    }
+
     state = state.copyWith(isLoading: true, errorMessage: null);
     final loaded =
         await ref.read(diagnosticRepositoryProvider).getRandomDiagnostic();
@@ -85,6 +90,11 @@ class DiagnosticController extends _$DiagnosticController {
   }
 
   Future<void> submitTest() async {
+    if (await _hasCompletedDiagnostic()) {
+      state = state.copyWith(isSubmitted: true);
+      return;
+    }
+
     int correctCount = 0;
     for (var q in state.questions) {
       if (state.userAnswers[q.id] == q.correctAnswer) {
@@ -121,5 +131,16 @@ class DiagnosticController extends _$DiagnosticController {
 
   void resetTest() {
     ref.invalidateSelf();
+  }
+
+  Future<bool> _hasCompletedDiagnostic() async {
+    if (ref.read(diagnosticCompletedProvider).value == true) return true;
+
+    final user = ref.read(currentUserProvider);
+    if (user == null) return false;
+
+    return ref
+        .read(diagnosticRepositoryProvider)
+        .isDiagnosticCompleted(user.uid);
   }
 }

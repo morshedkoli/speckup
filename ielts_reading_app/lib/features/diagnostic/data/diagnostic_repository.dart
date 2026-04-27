@@ -76,6 +76,21 @@ class DiagnosticRepository {
     }
   }
 
+  Future<bool> isDiagnosticCompleted(String uid) async {
+    if (isDiagnosticCompletedLocally(uid)) return true;
+
+    try {
+      final doc = await _firestore.collection('users').doc(uid).get();
+      final completed = doc.data()?['diagnosticCompleted'] == true;
+      if (completed) {
+        await _saveDiagnosticCompletedLocally(uid);
+      }
+      return completed;
+    } catch (_) {
+      return isDiagnosticCompletedLocally(uid);
+    }
+  }
+
   Future<void> markDiagnosticCompleted({
     required String uid,
     required double estimatedBandScore,

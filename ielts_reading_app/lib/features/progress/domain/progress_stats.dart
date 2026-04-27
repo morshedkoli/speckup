@@ -10,6 +10,12 @@ class ProgressStats {
   final double bestBand;
   final int totalSessions;
   final List<BandDataPoint> bandHistory;
+  
+  // Gamification fields
+  final int currentStreak;
+  final int longestStreak;
+  final int xp;
+  final DateTime? lastSessionDate;
 
   const ProgressStats({
     required this.currentBand,
@@ -17,6 +23,10 @@ class ProgressStats {
     required this.bestBand,
     required this.totalSessions,
     required this.bandHistory,
+    required this.currentStreak,
+    required this.longestStreak,
+    required this.xp,
+    this.lastSessionDate,
   });
 
   static const empty = ProgressStats(
@@ -25,6 +35,10 @@ class ProgressStats {
     bestBand: 0,
     totalSessions: 0,
     bandHistory: [],
+    currentStreak: 0,
+    longestStreak: 0,
+    xp: 0,
+    lastSessionDate: null,
   );
 
   /// Positive = improving, negative = declining, 0 = flat/no data

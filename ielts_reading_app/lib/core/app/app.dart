@@ -15,7 +15,7 @@ class App extends ConsumerWidget {
       title: 'SpeakUp Reading',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.dark,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

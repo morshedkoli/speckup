@@ -1,4 +1,4 @@
-import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, App, applicationDefault } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 
 let adminApp: App;
@@ -24,7 +24,10 @@ function getAdminDb(): Firestore {
     } else {
       // Fall back to Application Default Credentials (works with GOOGLE_APPLICATION_CREDENTIALS env var
       // or when deployed to Firebase Hosting / Cloud Run)
-      adminApp = initializeApp({ projectId }, 'admin');
+      adminApp = initializeApp({
+        credential: applicationDefault(),
+        projectId
+      }, 'admin');
     }
   } else {
     adminApp = getApps().find(a => a.name === 'admin') || getApps()[0];
