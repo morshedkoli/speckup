@@ -19,6 +19,19 @@ export interface OpenRouterConfig {
 export interface CloudflareAIConfig {
   accountId: string;
   apiToken: string;
+  /** Enable Cloudflare AI for text generation (in addition to image gen) */
+  textEnabled: boolean;
+  /** Per-task model assignments — model IDs from CF_TEXT_MODELS */
+  models: CloudflareModelAssignments;
+}
+
+/** Which Cloudflare model to use for each generation task type */
+export interface CloudflareModelAssignments {
+  vocabulary: string;
+  reading: string;
+  writing: string;
+  diagnostic: string;
+  evaluation: string;
 }
 
 export interface FullAIConfig {
@@ -29,6 +42,16 @@ export interface FullAIConfig {
   /** ImgBB API key for hosting generated chart images */
   imgbbApiKey: string;
 }
+
+const DEFAULT_CF_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
+
+export const DEFAULT_CF_MODEL_ASSIGNMENTS: CloudflareModelAssignments = {
+  vocabulary: DEFAULT_CF_MODEL,
+  reading: DEFAULT_CF_MODEL,
+  writing: DEFAULT_CF_MODEL,
+  diagnostic: DEFAULT_CF_MODEL,
+  evaluation: DEFAULT_CF_MODEL,
+};
 
 export const DEFAULT_FULL_CONFIG: FullAIConfig = {
   googleAI: {
@@ -47,6 +70,8 @@ export const DEFAULT_FULL_CONFIG: FullAIConfig = {
   cloudflareAI: {
     accountId: '',
     apiToken: '',
+    textEnabled: false,
+    models: { ...DEFAULT_CF_MODEL_ASSIGNMENTS },
   },
   imageProvider: 'cloudflare',
   imgbbApiKey: '',
@@ -55,9 +80,6 @@ export const DEFAULT_FULL_CONFIG: FullAIConfig = {
 export const GOOGLE_AI_MODELS = [
   { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite (Recommended — higher quota)' },
   { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-  { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash 8B' },
-  { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-  { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
 ];
 
 /**
@@ -68,6 +90,17 @@ export const GOOGLE_IMAGE_MODELS = [
   { id: 'gemini-2.5-flash-image', name: 'Gemini 2.5 Flash Image (free tier — recommended)' },
   { id: 'gemini-3.1-flash-image-preview', name: 'Gemini 3.1 Flash Image Preview (higher quality)' },
 ];
+
+/** Task type labels used across the UI */
+export const TASK_TYPES = [
+  { key: 'vocabulary' as const, label: 'Vocabulary Generation', icon: '📝' },
+  { key: 'reading' as const, label: 'Reading Passages', icon: '📖' },
+  { key: 'writing' as const, label: 'Writing Tasks', icon: '✍️' },
+  { key: 'diagnostic' as const, label: 'Diagnostic Passages', icon: '🧪' },
+  { key: 'evaluation' as const, label: 'Writing Evaluation', icon: '📊' },
+] as const;
+
+export type TaskType = typeof TASK_TYPES[number]['key'];
 
 export const FULL_CONFIG_STORAGE_KEY = 'ielts_admin_full_ai_config';
 export const FREE_MODELS_STORAGE_KEY = 'ielts_admin_free_models';

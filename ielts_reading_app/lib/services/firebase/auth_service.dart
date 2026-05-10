@@ -16,7 +16,7 @@ class AuthService {
   Future<UserCredential> signInWithGoogle() async {
     try {
       logger.i('Starting Google Sign-In flow');
-      
+
       UserCredential userCredential;
 
       if (kIsWeb) {
@@ -29,7 +29,8 @@ class AuthService {
           throw const AuthException('Google Sign-In canceled by user.');
         }
 
-        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
         final OAuthCredential credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,

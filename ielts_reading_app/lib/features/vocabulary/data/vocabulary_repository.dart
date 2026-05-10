@@ -1,7 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' hide Ref;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../services/firebase/firebase_providers.dart';
+import '../../../core/storage/hive_boxes.dart';
+import '../../../core/storage/offline_store.dart';
 import '../domain/saved_word.dart';
 
 part 'vocabulary_repository.g.dart';
@@ -22,11 +25,27 @@ class VocabularyRepository {
         .limit(100)
         .get(const GetOptions(source: Source.serverAndCache));
 
+    final store = OfflineStore(HiveBoxes.offline);
     final words = <VocabularyWord>[];
     for (final doc in snapshot.docs) {
       if (learnedIds.contains(doc.id)) continue;
-      words.add(VocabularyWord.fromMap(doc.id, doc.data()));
+      final word = VocabularyWord.fromMap(doc.id, doc.data());
+      await store.put('vocabulary_words', word.id, word.toMap());
+      words.add(word);
       if (words.length == limit) break;
+    }
+    if (words.isEmpty) {
+      return store
+          .list('vocabulary_words')
+          .map(
+            (record) => VocabularyWord.fromMap(
+              record.key.split('/').last,
+              record.data,
+            ),
+          )
+          .where((word) => !learnedIds.contains(word.id))
+          .take(limit)
+          .toList();
     }
     return words;
   }
@@ -41,6 +60,39 @@ class VocabularyRepository {
 
     return snapshot.docs
         .map((doc) => VocabularyWord.fromMap(doc.id, doc.data()))
+        .toList();
+  }
+
+  Future<List<VocabularyWord>> getSynonymQuizWords({int limit = 24}) async {
+    final snapshot = await _firestore
+        .collection('shared_vocabulary')
+        .orderBy('createdAt', descending: true)
+        .limit(100)
+        .get(const GetOptions(source: Source.serverAndCache));
+
+    final store = OfflineStore(HiveBoxes.offline);
+    final words = <VocabularyWord>[];
+    for (final doc in snapshot.docs) {
+      final word = VocabularyWord.fromMap(doc.id, doc.data());
+      await store.put('vocabulary_words', word.id, word.toMap());
+      if (word.synonyms.isNotEmpty || word.antonyms.isNotEmpty) {
+        words.add(word);
+      }
+      if (words.length == limit) break;
+    }
+
+    if (words.isNotEmpty) return words;
+
+    return store
+        .list('vocabulary_words')
+        .map(
+          (record) => VocabularyWord.fromMap(
+            record.key.split('/').last,
+            record.data,
+          ),
+        )
+        .where((word) => word.synonyms.isNotEmpty || word.antonyms.isNotEmpty)
+        .take(limit)
         .toList();
   }
 
@@ -67,7 +119,7 @@ class VocabularyRepository {
         return snap.docs.map((doc) => doc.id).toSet();
       }
     } catch (_) {}
-    
+
     final snapshot = await _firestore
         .collection('users')
         .doc(uid)
@@ -97,3 +149,7 @@ Future<List<VocabularyWord>> learnedWords(Ref ref) async {
 
   return ref.watch(vocabularyRepositoryProvider).getLearnedWords(user.uid);
 }
+
+final synonymQuizWordsProvider = FutureProvider<List<VocabularyWord>>((ref) {
+  return ref.watch(vocabularyRepositoryProvider).getSynonymQuizWords();
+});

@@ -47,7 +47,7 @@ class _TappableTextState extends State<TappableText> {
     final wordStyle = baseStyle.copyWith(
       decoration: TextDecoration.none,
     );
-    final highlightColor = theme.colorScheme.primary.withOpacity(0.15);
+    final highlightColor = theme.colorScheme.primary.withValues(alpha: 0.15);
 
     final spans = <InlineSpan>[];
 

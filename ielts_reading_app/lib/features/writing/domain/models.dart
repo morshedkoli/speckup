@@ -95,6 +95,7 @@ class WritingTask {
   final String title;
   final String instruction;
   final String prompt;
+
   /// ImgBB-hosted URL for the generated chart image (Academic Report tasks only)
   final String? imageUrl;
   final String difficulty;
@@ -178,6 +179,34 @@ class WritingCriterionScore {
   }
 }
 
+class WritingMistake {
+  final String original;
+  final String fix;
+  final String explanation;
+
+  const WritingMistake({
+    required this.original,
+    required this.fix,
+    required this.explanation,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'original': original,
+      'fix': fix,
+      'explanation': explanation,
+    };
+  }
+
+  factory WritingMistake.fromMap(Map<String, dynamic> map) {
+    return WritingMistake(
+      original: map['original'] as String? ?? '',
+      fix: map['fix'] as String? ?? '',
+      explanation: map['explanation'] as String? ?? '',
+    );
+  }
+}
+
 class WritingEvaluation {
   final double overallBand;
   final int estimatedWordCount;
@@ -185,6 +214,8 @@ class WritingEvaluation {
   final List<WritingCriterionScore> criteria;
   final List<String> strengths;
   final List<String> improvements;
+  final List<WritingMistake> mistakes;
+  final String enhancedVersion;
   final String modelAnswer;
 
   const WritingEvaluation({
@@ -194,6 +225,8 @@ class WritingEvaluation {
     required this.criteria,
     required this.strengths,
     required this.improvements,
+    required this.mistakes,
+    required this.enhancedVersion,
     required this.modelAnswer,
   });
 
@@ -205,6 +238,8 @@ class WritingEvaluation {
       'criteria': criteria.map((criterion) => criterion.toMap()).toList(),
       'strengths': strengths,
       'improvements': improvements,
+      'mistakes': mistakes.map((m) => m.toMap()).toList(),
+      'enhancedVersion': enhancedVersion,
       'modelAnswer': modelAnswer,
     };
   }
@@ -225,6 +260,12 @@ class WritingEvaluation {
           List<String>.from(map['strengths'] as List<dynamic>? ?? const []),
       improvements:
           List<String>.from(map['improvements'] as List<dynamic>? ?? const []),
+      mistakes: (map['mistakes'] as List<dynamic>? ?? const [])
+          .map(
+            (m) => WritingMistake.fromMap(Map<String, dynamic>.from(m as Map)),
+          )
+          .toList(),
+      enhancedVersion: map['enhancedVersion'] as String? ?? '',
       modelAnswer: map['modelAnswer'] as String? ?? '',
     );
   }

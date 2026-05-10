@@ -10,6 +10,7 @@ import '../../../core/presentation/widgets/glass_container.dart';
 import '../../../core/presentation/widgets/animated_touch_response.dart';
 import '../../../core/router/route_names.dart';
 import '../../../core/theme/app_colors.dart';
+import '../domain/models.dart';
 import '../providers/writing_session_provider.dart';
 
 class WritingResultPage extends ConsumerWidget {
@@ -59,7 +60,8 @@ class WritingResultPage extends ConsumerWidget {
             const SizedBox(height: 20),
 
             // ── Criterion bars ─────────────────────────────────────────────
-            _SectionTitle(title: 'Score Breakdown', icon: LucideIcons.barChart2),
+            _SectionTitle(
+                title: 'Score Breakdown', icon: LucideIcons.barChart2),
             const SizedBox(height: 12),
             GlassContainer(
               padding: const EdgeInsets.all(18),
@@ -89,10 +91,40 @@ class WritingResultPage extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
 
+            // ── Mistakes ───────────────────────────────────────────────────
+            if (evaluation.mistakes.isNotEmpty) ...[
+              _CollapsibleMistakesSection(
+                title: 'Mistakes & Fixes',
+                icon: LucideIcons.alertTriangle,
+                iconColor: AppColors.coral,
+                mistakes: evaluation.mistakes,
+              ),
+              const SizedBox(height: 12),
+            ],
+
             // ── Model answer ───────────────────────────────────────────────
-            if (evaluation.modelAnswer.trim().isNotEmpty)
-              _CollapsibleModelAnswer(text: evaluation.modelAnswer),
-            const SizedBox(height: 24),
+            if (evaluation.modelAnswer.trim().isNotEmpty) ...[
+              _CollapsibleTextSection(
+                title: 'Model Answer Sample',
+                icon: LucideIcons.sparkles,
+                iconColor: AppColors.violet,
+                text: evaluation.modelAnswer,
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // ── Enhanced Version ───────────────────────────────────────────
+            if (evaluation.enhancedVersion.trim().isNotEmpty) ...[
+              _CollapsibleTextSection(
+                title: 'Enhanced Version (Band 8 Level)',
+                icon: LucideIcons.trendingUp,
+                iconColor: AppColors.accent,
+                text: evaluation.enhancedVersion,
+              ),
+              const SizedBox(height: 24),
+            ] else ...[
+              const SizedBox(height: 12),
+            ],
 
             // ── CTAs ───────────────────────────────────────────────────────
             FilledButton.icon(
@@ -192,7 +224,7 @@ class _BandHeroCard extends StatelessWidget {
                       band.toStringAsFixed(1),
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
                             color: Colors.white,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w700,
                             letterSpacing: -1,
                           ),
                     ),
@@ -253,7 +285,9 @@ class _BandArcPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 8;
 
-    canvas.drawCircle(center, radius,
+    canvas.drawCircle(
+        center,
+        radius,
         Paint()
           ..color = trackColor
           ..style = PaintingStyle.stroke
@@ -315,7 +349,7 @@ class _CriterionBar extends StatelessWidget {
                   band.toStringAsFixed(1),
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: color,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                       ),
                 ),
               ),
@@ -363,7 +397,7 @@ class _SectionTitle extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
               ),
         ),
@@ -427,7 +461,7 @@ class _CollapsibleFeedbackSectionState
                 Icon(
                   _expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                   size: 16,
-                  color: AppColors.textMuted,
+                  color: AppColors.zinc500,
                 ),
               ],
             ),
@@ -471,19 +505,27 @@ class _CollapsibleFeedbackSectionState
   }
 }
 
-// ─── Collapsible Model Answer ─────────────────────────────────────────────────
+// ─── Collapsible Text Section ─────────────────────────────────────────────────
 
-class _CollapsibleModelAnswer extends StatefulWidget {
+class _CollapsibleTextSection extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
   final String text;
 
-  const _CollapsibleModelAnswer({required this.text});
+  const _CollapsibleTextSection({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.text,
+  });
 
   @override
-  State<_CollapsibleModelAnswer> createState() =>
-      _CollapsibleModelAnswerState();
+  State<_CollapsibleTextSection> createState() =>
+      _CollapsibleTextSectionState();
 }
 
-class _CollapsibleModelAnswerState extends State<_CollapsibleModelAnswer> {
+class _CollapsibleTextSectionState extends State<_CollapsibleTextSection> {
   bool _expanded = false;
 
   @override
@@ -500,16 +542,15 @@ class _CollapsibleModelAnswerState extends State<_CollapsibleModelAnswer> {
                 Container(
                   padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: AppColors.violet.withValues(alpha: 0.12),
+                    color: widget.iconColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(LucideIcons.sparkles,
-                      size: 16, color: AppColors.violet),
+                  child: Icon(widget.icon, size: 16, color: widget.iconColor),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Model Answer Sample',
+                    widget.title,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
@@ -518,7 +559,7 @@ class _CollapsibleModelAnswerState extends State<_CollapsibleModelAnswer> {
                 Icon(
                   _expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                   size: 16,
-                  color: AppColors.textMuted,
+                  color: AppColors.zinc500,
                 ),
               ],
             ),
@@ -533,6 +574,133 @@ class _CollapsibleModelAnswerState extends State<_CollapsibleModelAnswer> {
                     color: AppColors.textSecondary,
                     height: 1.75,
                   ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Collapsible Mistakes Section ─────────────────────────────────────────────
+
+class _CollapsibleMistakesSection extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final Color iconColor;
+  final List<WritingMistake> mistakes;
+
+  const _CollapsibleMistakesSection({
+    required this.title,
+    required this.icon,
+    required this.iconColor,
+    required this.mistakes,
+  });
+
+  @override
+  State<_CollapsibleMistakesSection> createState() =>
+      _CollapsibleMistakesSectionState();
+}
+
+class _CollapsibleMistakesSectionState
+    extends State<_CollapsibleMistakesSection> {
+  bool _expanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnimatedTouchResponse(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: widget.iconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(widget.icon, size: 16, color: widget.iconColor),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ),
+                Icon(
+                  _expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                  size: 16,
+                  color: AppColors.zinc500,
+                ),
+              ],
+            ),
+          ),
+          if (_expanded) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: AppColors.borderDark),
+            const SizedBox(height: 12),
+            ...widget.mistakes.map(
+              (mistake) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.coral.withValues(alpha: 0.05),
+                    border: Border.all(
+                      color: AppColors.coral.withValues(alpha: 0.1),
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        mistake.original,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.coral,
+                              decoration: TextDecoration.lineThrough,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(LucideIcons.arrowRight,
+                              size: 14, color: AppColors.accent),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              mistake.fix,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: AppColors.accent,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        mistake.explanation,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppColors.zinc500,
+                              height: 1.5,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ],

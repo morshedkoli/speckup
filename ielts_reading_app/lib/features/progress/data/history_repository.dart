@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../services/firebase/firebase_providers.dart';
@@ -12,11 +11,14 @@ class HistoryRepository {
 
   HistoryRepository(this._firestore);
 
-  Future<void> savePracticeSession(String uid, PracticeSessionState session) async {
+  Future<void> savePracticeSession(
+    String uid,
+    PracticeSessionState session,
+  ) async {
     if (session.passage == null) return;
 
     final passage = session.passage!;
-    
+
     final data = {
       'timestamp': FieldValue.serverTimestamp(),
       'passageId': passage.id,
@@ -24,14 +26,19 @@ class HistoryRepository {
       'difficulty': passage.difficulty,
       'score': session.score,
       'questionCount': passage.questions.length,
-      'questions': passage.questions.map((q) => {
-        'id': q.id,
-        'type': q.type.name,
-        'text': q.text,
-        'correctAnswer': q.correctAnswer,
-        'userAnswer': session.userAnswers[q.id] ?? '',
-        'isCorrect': (session.userAnswers[q.id]?.toLowerCase() ?? '') == q.correctAnswer.toLowerCase(),
-      }).toList(),
+      'questions': passage.questions
+          .map(
+            (q) => {
+              'id': q.id,
+              'type': q.type.name,
+              'text': q.text,
+              'correctAnswer': q.correctAnswer,
+              'userAnswer': session.userAnswers[q.id] ?? '',
+              'isCorrect': (session.userAnswers[q.id]?.toLowerCase() ?? '') ==
+                  q.correctAnswer.toLowerCase(),
+            },
+          )
+          .toList(),
     };
 
     await _firestore
@@ -48,11 +55,13 @@ class HistoryRepository {
         .collection('history')
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) {
-              final data = doc.data();
-              data['id'] = doc.id;
-              return data;
-            }).toList());
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final data = doc.data();
+            data['id'] = doc.id;
+            return data;
+          }).toList(),
+        );
   }
 }
 
@@ -65,6 +74,6 @@ HistoryRepository historyRepository(Ref ref) {
 Stream<List<Map<String, dynamic>>> userHistoryStream(Ref ref) {
   final user = ref.watch(currentUserProvider);
   if (user == null) return const Stream.empty();
-  
+
   return ref.watch(historyRepositoryProvider).getUserHistory(user.uid);
 }

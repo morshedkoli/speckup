@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, BookOpen, PenTool, Loader2, CheckCircle2, XCircle, Award, Target, TrendingUp, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { adminFetch } from '@/lib/admin-api';
 
 
 interface ReadingHistoryItem {
@@ -46,7 +47,7 @@ export default function UserDetailPage() {
     async function loadUser() {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/users/${uid}`);
+        const res = await adminFetch(`/api/users/${uid}`);
         const json = await res.json();
         if (json.data) {
           setUserData(json.data.userData);
@@ -97,7 +98,7 @@ export default function UserDetailPage() {
   return (
     <div className="p-8">
       {/* Back button */}
-      <Link href="/users" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6 transition-colors">
+      <Link href="/admin/users" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6 transition-colors">
         <ArrowLeft className="h-4 w-4" />
         Back to Users
       </Link>

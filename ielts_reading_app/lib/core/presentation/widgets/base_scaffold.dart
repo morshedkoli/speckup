@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 
 class BaseScaffold extends StatelessWidget {
   final Widget body;
@@ -19,17 +18,11 @@ class BaseScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: AppColors.darkMesh,
-      ),
-      child: Scaffold(
-        appBar: appBar,
-        backgroundColor: Colors.transparent,
-        body: safeArea ? SafeArea(child: body) : body,
-        floatingActionButton: floatingActionButton,
-        bottomNavigationBar: bottomNavigationBar,
-      ),
+    return Scaffold(
+      appBar: appBar,
+      body: safeArea ? SafeArea(child: body) : body,
+      floatingActionButton: floatingActionButton,
+      bottomNavigationBar: bottomNavigationBar,
     );
   }
 }

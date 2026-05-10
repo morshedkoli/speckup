@@ -1,12 +1,13 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { requireAdmin } from '@/lib/admin-guard';
 
 const COL = 'shared_passages';
 
 async function tryGetAdminDb() {
   try {
-    return getAdminDb();
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    return await getAdminDb();
   } catch (err: any) {
     console.error('Failed to init admin:', err);
     return null;
@@ -14,7 +15,10 @@ async function tryGetAdminDb() {
 }
 
 // GET /api/passages  →  returns all shared passages ordered by createdAt desc
-export async function GET() {
+export async function GET(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   const db = await tryGetAdminDb();
 
   if (!db) {
@@ -28,7 +32,7 @@ export async function GET() {
       .orderBy('createdAt', 'desc')
       .get();
 
-    const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const data = snap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json({ data });
   } catch (err: any) {
     console.warn('[passages GET] Firestore error:', err.message);
@@ -38,6 +42,9 @@ export async function GET() {
 
 // POST /api/passages  →  saves a passage via Admin SDK (bypasses Firestore rules)
 export async function POST(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   const db = await tryGetAdminDb();
   if (!db) return NextResponse.json({ error: 'DB unavailable' }, { status: 503 });
 
@@ -49,7 +56,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid passage data' }, { status: 400 });
     }
 
-    const { FieldValue } = await import('firebase-admin/firestore');
+    const { getFieldValue } = await import('@/lib/firebase-admin');
+    const FieldValue = await getFieldValue();
 
     await db.collection(COL).doc(passage.id).set({
       ...passage,
@@ -68,6 +76,9 @@ export async function POST(request: Request) {
 
 // DELETE /api/passages?id=<docId>
 export async function DELETE(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
@@ -83,4 +94,3 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-

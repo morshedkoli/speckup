@@ -88,21 +88,20 @@ class _PassageView extends ConsumerWidget {
                   Text(
                     passage.title,
                     style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       height: 1.2,
                     ),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _buildTag(theme, passage.difficulty, LucideIcons.barChart2),
+                      _buildTag(
+                          theme, passage.difficulty, LucideIcons.barChart2),
                       const SizedBox(width: 12),
                       _buildTag(theme, '${passage.estimatedMinutes} min',
                           LucideIcons.clock),
                       const SizedBox(width: 12),
-                      _buildTag(
-                          theme,
-                          '${passage.questions.length} Q',
+                      _buildTag(theme, '${passage.questions.length} Q',
                           LucideIcons.helpCircle),
                     ],
                   ),
@@ -114,7 +113,7 @@ class _PassageView extends ConsumerWidget {
                     style: theme.textTheme.bodyLarge?.copyWith(
                       height: 1.8,
                       fontSize: 18,
-                      color: theme.colorScheme.onSurface.withOpacity(0.9),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
                     ),
                     onWordDoubleTap: (word) =>
                         showWordDefinitionSheet(context, ref, word),
@@ -146,16 +145,15 @@ class _PassageView extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.5),
+        color: theme.colorScheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.2)),
+        border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon,
-              size: 16,
-              color: theme.colorScheme.onSurface.withOpacity(0.7)),
+              size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
           const SizedBox(width: 8),
           Text(
             text,
@@ -194,7 +192,7 @@ class _ErrorView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(LucideIcons.alertTriangle,
-                  size: 56, color: theme.colorScheme.error.withOpacity(0.8)),
+                  size: 56, color: theme.colorScheme.error.withValues(alpha: 0.8)),
               const SizedBox(height: 20),
               Text('Could not load passage',
                   style: theme.textTheme.titleMedium
@@ -204,7 +202,7 @@ class _ErrorView extends StatelessWidget {
                 message,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.5),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 24),
@@ -232,12 +230,12 @@ class _HintLabel extends StatelessWidget {
     return Row(
       children: [
         Icon(LucideIcons.mousePointerClick,
-            size: 13, color: theme.colorScheme.primary.withOpacity(0.5)),
+            size: 13, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
         const SizedBox(width: 6),
         Text(
           'Double-tap any word for its meaning',
           style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.primary.withOpacity(0.5),
+            color: theme.colorScheme.primary.withValues(alpha: 0.5),
             letterSpacing: 0.2,
           ),
         ),

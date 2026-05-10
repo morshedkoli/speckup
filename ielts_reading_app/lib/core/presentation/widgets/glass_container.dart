@@ -1,13 +1,11 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../theme/glass_styles.dart';
+
 import '../../theme/app_colors.dart';
 
-/// A frosted-glass card that adapts to the Stitch dark design.
-/// 
-/// Use [gradient] for gradient-backed cards.
-/// Use [accentColor] to add a coloured left-side accent stripe.
-/// Use [borderColor] to override the border colour.
+/// A clean, flat card with a 1px border — the primary surface component.
+///
+/// Replaces the previous glassmorphism GlassContainer.
+/// Uses [accentColor] for a left-side accent stripe.
 class GlassContainer extends StatelessWidget {
   final Widget child;
   final double? width;
@@ -19,6 +17,8 @@ class GlassContainer extends StatelessWidget {
   final Gradient? gradient;
   final Color? borderColor;
   final Color? accentColor;
+
+  /// Ignored — kept for backward-compat, blur is removed in the redesign.
   final bool enableBlur;
 
   const GlassContainer({
@@ -39,66 +39,54 @@ class GlassContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final radius = borderRadius ?? GlassStyles.defaultRadius;
+    final radius = borderRadius ?? BorderRadius.circular(12);
+
+    final bgColor = colorOverride ??
+        (gradient != null
+            ? null
+            : isDark
+                ? AppColors.zinc900
+                : AppColors.zinc50);
 
     final border = borderColor != null
         ? Border.all(color: borderColor!, width: 1.0)
-        : isDark
-            ? GlassStyles.glassBorderDark
-            : GlassStyles.glassBorderLight;
+        : Border.all(
+            color: isDark ? AppColors.zinc800 : AppColors.zinc200,
+          );
 
-    Widget content = Container(
-      padding: padding ?? const EdgeInsets.all(20.0),
-      decoration: BoxDecoration(
-        color: gradient == null
-            ? (colorOverride ?? (isDark ? AppColors.bg2 : Colors.white.withValues(alpha: 0.65)))
-            : null,
-        gradient: gradient,
-        borderRadius: radius,
-        border: border,
-      ),
-      child: accentColor != null
-          ? IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    width: 3,
-                    decoration: BoxDecoration(
-                      color: accentColor,
-                      borderRadius: BorderRadius.only(
-                        topLeft: radius.topLeft,
-                        bottomLeft: radius.bottomLeft,
-                      ),
+    Widget content = accentColor != null
+        ? IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    color: accentColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: radius.topLeft,
+                      bottomLeft: radius.bottomLeft,
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(child: child),
-                ],
-              ),
-            )
-          : child,
-    );
-
-    if (enableBlur && gradient == null) {
-      content = ClipRRect(
-        borderRadius: radius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: GlassStyles.blurSigma,
-            sigmaY: GlassStyles.blurSigma,
-          ),
-          child: content,
-        ),
-      );
-    } else {
-      content = ClipRRect(borderRadius: radius, child: content);
-    }
+                ),
+                const SizedBox(width: 14),
+                Expanded(child: child),
+              ],
+            ),
+          )
+        : child;
 
     return Container(
       margin: margin,
       width: width,
       height: height,
+      padding: padding ?? const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        gradient: gradient,
+        borderRadius: radius,
+        border: border,
+      ),
       child: content,
     );
   }

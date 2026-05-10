@@ -4,6 +4,7 @@ import '../data/passage_repository.dart';
 import '../data/shared_passage_repository.dart';
 import '../domain/models.dart';
 import '../../../services/firebase/firebase_providers.dart';
+import '../../../core/storage/offline_store.dart';
 
 part 'reading_providers.g.dart';
 
@@ -56,9 +57,17 @@ class PracticeSession extends _$PracticeSession {
   /// Call once the passage has been loaded and the session should start.
   void initPassage(PracticePassage passage) {
     if (state.passage != null) return; // already initialized
+    final draft = ref
+        .read(offlineStoreProvider)
+        .get('reading_drafts', '${type.name}_${passage.id}');
+    final savedAnswers = draft == null
+        ? const <String, String>{}
+        : Map<String, String>.from(draft.data['userAnswers'] as Map? ?? {});
+
     state = PracticeSessionState(
       passage: passage,
       questionType: type,
+      userAnswers: savedAnswers,
       assignedAt: DateTime.now(),
     );
   }
@@ -68,6 +77,15 @@ class PracticeSession extends _$PracticeSession {
     final updated = Map<String, String>.from(state.userAnswers);
     updated[questionId] = answer.trim();
     state = state.copyWith(userAnswers: updated);
+
+    final passage = state.passage;
+    if (passage != null) {
+      ref.read(offlineStoreProvider).put(
+            'reading_drafts',
+            '${type.name}_${passage.id}',
+            state.toMap(),
+          );
+    }
   }
 
   /// Scores the session and marks it as submitted.

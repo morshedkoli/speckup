@@ -41,7 +41,8 @@ class WritingSessionController extends Notifier<WritingSessionState> {
     }
 
     if (selectedTask == null) {
-      throw Exception('No new writing tasks available. Please check back later.');
+      throw Exception(
+          'No new writing tasks available. Please check back later.');
     }
 
     final session = WritingSessionState(

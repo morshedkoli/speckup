@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(firebase functions:secrets:set *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(npm run *)"
+    ]
+  }
+}

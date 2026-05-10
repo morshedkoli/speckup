@@ -212,7 +212,7 @@ class _Header extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -0.5,
                 ),
           ),
@@ -220,7 +220,7 @@ class _Header extends StatelessWidget {
           Text(
             subtitle,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: AppColors.zinc400,
                 ),
           ),
         ],
@@ -276,14 +276,14 @@ class _TypeCard extends StatelessWidget {
                     Text(
                       meta.title,
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       meta.subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
+                            color: AppColors.zinc400,
                           ),
                     ),
                   ],
@@ -378,7 +378,7 @@ class _EmptyState extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: const Icon(LucideIcons.bookX,
-                  size: 48, color: AppColors.textMuted),
+                  size: 48, color: AppColors.zinc500),
             ),
             const SizedBox(height: 20),
             Text('No Passages Available',

@@ -7,8 +7,7 @@ import '../../../../services/dictionary_service.dart';
 import '../../domain/word_definition.dart';
 
 /// Call this to show the word definition bottom sheet.
-void showWordDefinitionSheet(
-    BuildContext context, WidgetRef ref, String word) {
+void showWordDefinitionSheet(BuildContext context, WidgetRef ref, String word) {
   // Serve from cache immediately if available
   final cached = ref.read(wordCacheServiceProvider.notifier).get(word);
 
@@ -57,9 +56,17 @@ class _WordDefinitionSheetState extends ConsumerState<_WordDefinitionSheet> {
       final def = await dict.getWordDefinition(widget.word);
       ref.read(wordCacheServiceProvider.notifier).put(def);
 
-      if (mounted) setState(() { _definition = def; _loading = false; });
+      if (mounted)
+        setState(() {
+          _definition = def;
+          _loading = false;
+        });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted)
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
     }
   }
 
@@ -82,9 +89,10 @@ class _WordDefinitionSheetState extends ConsumerState<_WordDefinitionSheet> {
             Padding(
               padding: const EdgeInsets.only(top: 12, bottom: 4),
               child: Container(
-                width: 40, height: 4,
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurface.withOpacity(0.15),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -109,14 +117,14 @@ class _WordDefinitionSheetState extends ConsumerState<_WordDefinitionSheet> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           'WORD',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                             letterSpacing: 1,
                           ),
                         ),
@@ -136,13 +144,16 @@ class _WordDefinitionSheetState extends ConsumerState<_WordDefinitionSheet> {
                       child: Text(
                         'Looking up definition…',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                         ),
                       ),
                     ),
                   ] else if (_error != null) ...[
                     _ErrorCard(onRetry: () {
-                      setState(() { _loading = true; _error = null; });
+                      setState(() {
+                        _loading = true;
+                        _error = null;
+                      });
                       _fetch();
                     }),
                   ] else if (_definition != null) ...[
@@ -206,9 +217,9 @@ class _DefinitionSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.15)),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,11 +261,10 @@ class _ErrorCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
         children: [
-          Icon(LucideIcons.wifiOff, size: 40,
-              color: theme.colorScheme.error.withOpacity(0.6)),
+          Icon(LucideIcons.wifiOff,
+              size: 40, color: theme.colorScheme.error.withValues(alpha: 0.6)),
           const SizedBox(height: 12),
-          Text('Could not fetch definition.',
-              style: theme.textTheme.bodyLarge),
+          Text('Could not fetch definition.', style: theme.textTheme.bodyLarge),
           const SizedBox(height: 16),
           TextButton.icon(
             onPressed: onRetry,

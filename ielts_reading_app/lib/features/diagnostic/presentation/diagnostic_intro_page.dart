@@ -32,7 +32,7 @@ class DiagnosticIntroPage extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.1),
+                      color: Colors.orange.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(LucideIcons.brainCircuit,
@@ -49,7 +49,7 @@ class DiagnosticIntroPage extends ConsumerWidget {
                   Text(
                     'Before we tailor your study plan, please take a short diagnostic test. This evaluates your current IELTS reading proficiency.',
                     style: theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.8),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                       height: 1.5,
                     ),
                   ),
@@ -88,7 +88,7 @@ class DiagnosticIntroPage extends ConsumerWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, color: theme.colorScheme.primary.withOpacity(0.8), size: 24),
+        Icon(icon, color: theme.colorScheme.primary.withValues(alpha: 0.8), size: 24),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
@@ -102,7 +102,7 @@ class DiagnosticIntroPage extends ConsumerWidget {
               Text(
                 subtitle,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
               ),
             ],

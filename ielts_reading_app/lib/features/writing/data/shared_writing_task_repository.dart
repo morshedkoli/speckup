@@ -27,7 +27,7 @@ class SharedWritingTaskRepository {
         .collection('seen_writing_tasks')
         .doc(taskId)
         .set({'seenAt': FieldValue.serverTimestamp()});
-        
+
     // Invalidate cached counts
     await _cache.delete(_countsKey(uid));
   }
@@ -60,7 +60,7 @@ class SharedWritingTaskRepository {
       } catch (_) {
         // Cache miss
       }
-      
+
       final snapshot = await _firestore
           .collection('users')
           .doc(uid)
@@ -93,15 +93,18 @@ class SharedWritingTaskRepository {
     return needed;
   }
 
-  Future<Map<WritingTaskType, int>> getAvailableCountsPerType(String uid) async {
+  Future<Map<WritingTaskType, int>> getAvailableCountsPerType(
+      String uid) async {
     // 1. Check cache
     final cached = _cache.get<Map<String, dynamic>>(_countsKey(uid));
     if (cached != null) {
       return cached.map(
-        (k, v) => MapEntry(WritingTaskType.values.firstWhere((e) => e.name == k), (v as num).toInt()),
+        (k, v) => MapEntry(
+            WritingTaskType.values.firstWhere((e) => e.name == k),
+            (v as num).toInt()),
       );
     }
-    
+
     // 2. Fetch from Firestore
     final seenIds = await _getSeenIds(uid);
     final counts = <WritingTaskType, int>{};
@@ -116,14 +119,14 @@ class SharedWritingTaskRepository {
       final unseen = snapshot.docs.where((d) => !seenIds.contains(d.id)).length;
       counts[type] = unseen;
     }
-    
+
     // 3. Write-through to Hive
     await _cache.set(
       _countsKey(uid),
       counts.map((k, v) => MapEntry(k.name, v)),
       ttl: _countsCacheTtl,
     );
-    
+
     return counts;
   }
 

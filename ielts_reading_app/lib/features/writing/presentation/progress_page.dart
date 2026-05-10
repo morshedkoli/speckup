@@ -113,7 +113,7 @@ class _BandHero extends StatelessWidget {
           Text(
             'Current Writing Band',
             style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
           const SizedBox(height: 12),
@@ -141,7 +141,7 @@ class _BandHero extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -225,7 +225,7 @@ class _StatCard extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.5),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -271,7 +271,7 @@ class _HistoryList extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: bandColor.withOpacity(0.12),
+                  color: bandColor.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
@@ -300,7 +300,7 @@ class _HistoryList extends StatelessWidget {
                     Text(
                       DateFormat('MMM d, yyyy  •  h:mm a').format(date),
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.45),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.45),
                       ),
                     ),
                   ],
@@ -309,7 +309,7 @@ class _HistoryList extends StatelessWidget {
               Text(
                 '$wordCount words',
                 style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.5),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             ],
@@ -341,7 +341,7 @@ class _EmptyState extends StatelessWidget {
             Icon(
               LucideIcons.edit2,
               size: 64,
-              color: theme.colorScheme.onSurface.withOpacity(0.15),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
             ),
             const SizedBox(height: 24),
             Text(
@@ -354,7 +354,7 @@ class _EmptyState extends StatelessWidget {
             Text(
               'Complete a writing task to start tracking your estimated writing band.',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
               textAlign: TextAlign.center,
             ),

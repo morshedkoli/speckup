@@ -97,7 +97,7 @@ class _DiagnosticTestPageState extends ConsumerState<DiagnosticTestPage> {
                       passage?.text ?? '',
                       style: theme.textTheme.bodyLarge?.copyWith(
                         height: 1.6,
-                        color: theme.colorScheme.onSurface.withOpacity(0.9),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.9),
                       ),
                     ),
                   ],
@@ -147,7 +147,7 @@ class _DiagnosticTestPageState extends ConsumerState<DiagnosticTestPage> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 20, vertical: 16),
                               colorOverride: isSelected
-                                  ? theme.colorScheme.primary.withOpacity(0.2)
+                                  ? theme.colorScheme.primary.withValues(alpha: 0.2)
                                   : null,
                               child: Row(
                                 children: [
@@ -158,7 +158,7 @@ class _DiagnosticTestPageState extends ConsumerState<DiagnosticTestPage> {
                                     color: isSelected
                                         ? theme.colorScheme.primary
                                         : theme.colorScheme.onSurface
-                                            .withOpacity(0.4),
+                                            .withValues(alpha: 0.4),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
@@ -197,7 +197,7 @@ class _DiagnosticTestPageState extends ConsumerState<DiagnosticTestPage> {
                         _prevPage();
                       },
                       backgroundColor:
-                          theme.colorScheme.surface.withOpacity(0.2),
+                          theme.colorScheme.surface.withValues(alpha: 0.2),
                       child: const Text('Back'),
                     ),
                   ),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'animated_touch_response.dart';
-import 'glass_container.dart';
 
+import '../../theme/app_colors.dart';
+import 'animated_touch_response.dart';
+
+/// A styled button that matches the new clean design system.
 class GlassButton extends StatelessWidget {
   final VoidCallback onTap;
   final Widget child;
@@ -18,16 +20,25 @@ class GlassButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = backgroundColor ??
+        (isDark ? AppColors.zinc800 : AppColors.zinc100);
+
     return AnimatedTouchResponse(
       onTap: onTap,
-      child: GlassContainer(
-        colorOverride: backgroundColor,
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-        borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isDark ? AppColors.zinc700 : AppColors.zinc300,
+          ),
+        ),
         child: Center(
           child: DefaultTextStyle(
-            style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                  fontWeight: FontWeight.w700,
+            style: Theme.of(context).textTheme.titleSmall!.copyWith(
+                  fontWeight: FontWeight.w600,
                   color: textColor ?? Theme.of(context).colorScheme.primary,
                 ),
             child: child,

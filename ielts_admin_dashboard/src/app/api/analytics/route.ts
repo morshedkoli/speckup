@@ -1,10 +1,11 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { requireAdmin } from '@/lib/admin-guard';
 
 async function tryGetAdminDb() {
   try {
-    return getAdminDb();
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    return await getAdminDb();
   } catch (err: any) {
     console.error('Failed to init admin:', err);
     return null;
@@ -12,7 +13,10 @@ async function tryGetAdminDb() {
 }
 
 // GET /api/analytics  →  full analytics data via Admin SDK
-export async function GET() {
+export async function GET(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   const db = await tryGetAdminDb();
   if (!db) return NextResponse.json({ error: 'DB unavailable' }, { status: 503 });
 
@@ -25,14 +29,14 @@ export async function GET() {
 
     // Passage type breakdown
     const passagesByType: Record<string, number> = {};
-    passagesSnap.docs.forEach((doc) => {
+    passagesSnap.docs.forEach((doc: any) => {
       const type = doc.data().questionType || doc.data().type || 'unknown';
       passagesByType[type] = (passagesByType[type] || 0) + 1;
     });
 
     // Task type breakdown
     const tasksByType: Record<string, number> = {};
-    tasksSnap.docs.forEach((doc) => {
+    tasksSnap.docs.forEach((doc: any) => {
       const type = doc.data().taskType || 'unknown';
       tasksByType[type] = (tasksByType[type] || 0) + 1;
     });
@@ -47,7 +51,7 @@ export async function GET() {
     const userActivity: { uid: string; name: string; sessions: number }[] = [];
 
     await Promise.all(
-      usersSnap.docs.map(async (userDoc) => {
+      usersSnap.docs.map(async (userDoc: any) => {
         const userData = userDoc.data();
         let userSessions = 0;
 
@@ -58,14 +62,14 @@ export async function GET() {
 
         totalReadingSessions += historySnap.size;
         userSessions += historySnap.size;
-        historySnap.docs.forEach((d) => {
+        historySnap.docs.forEach((d: any) => {
           const score = d.data().score;
           if (typeof score === 'number') { totalScoreSum += score; totalScoreCount++; }
         });
 
         totalWritingSessions += writingSnap.size;
         userSessions += writingSnap.size;
-        writingSnap.docs.forEach((d) => {
+        writingSnap.docs.forEach((d: any) => {
           const band = d.data().overallBand;
           if (typeof band === 'number') { totalBandSum += band; totalBandCount++; }
         });
@@ -101,4 +105,3 @@ export async function GET() {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-

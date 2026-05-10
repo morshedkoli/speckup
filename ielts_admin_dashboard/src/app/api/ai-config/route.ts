@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { requireAdmin } from '@/lib/admin-guard';
 import { DEFAULT_FULL_CONFIG } from '@/lib/ai-config';
 
 const COL = 'admin_settings';
@@ -10,15 +10,28 @@ const DOC = 'ai_config';
 // Lazy-load Admin DB so import errors don't break the entire route
 async function tryGetAdminDb() {
   try {
-    return getAdminDb();
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    return await getAdminDb();
   } catch (err: any) {
-    console.error('Failed to init admin:', err);
+    console.error('[ai-config] Failed to init admin DB:', {
+      message: err.message,
+      code: err.code,
+      stack: err.stack?.split('\n').slice(0, 3).join('\n'),
+      envCheck: {
+        hasPrivateKey: !!process.env.FB_ADMIN_PRIVATE_KEY,
+        hasClientEmail: !!process.env.FB_ADMIN_CLIENT_EMAIL,
+        hasProjectId: !!process.env.FB_ADMIN_PROJECT_ID,
+      }
+    });
     return null;
   }
 }
 
 // GET /api/ai-config  →  returns saved config (falls back to defaults when Firestore unavailable)
-export async function GET() {
+export async function GET(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   const db = await tryGetAdminDb();
 
   if (!db) {
@@ -62,6 +75,9 @@ export async function GET() {
 
 // POST /api/ai-config  →  saves config (only small fields, no model list)
 export async function POST(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   try {
     const body = await request.json();
 
@@ -114,5 +130,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-
-

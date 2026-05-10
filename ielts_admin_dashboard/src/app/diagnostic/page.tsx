@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { BrainCircuit, CheckCircle2, ChevronUp, Eye, Key, Loader2, Plus, Trash2, XCircle } from 'lucide-react';
 import Link from 'next/link';
 
-import { generateDiagnosticPassageAction } from '@/app/actions';
+// generateDiagnosticPassageAction removed — using /api/diagnostic/generate instead (avoids 60 s CF timeout)
 import { DiagnosticPassage } from '@/types';
 import { useAIConfig } from '@/hooks/useAIConfig';
+import { adminFetch } from '@/lib/admin-api';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unexpected error';
@@ -24,7 +25,7 @@ export default function DiagnosticPage() {
   const loadPassages = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/diagnostic');
+      const res = await adminFetch('/api/diagnostic');
       const json = await res.json();
       setPassages(json.data ?? []);
     } catch (error) {
@@ -45,38 +46,38 @@ export default function DiagnosticPage() {
     setIsGenerating(true);
     setStatusType('idle');
     setStatusMessage('Generating diagnostic passage...');
+    try {
+      // Use API route (maxDuration=300) instead of Server Action (60 s timeout)
+      const genRes = await adminFetch('/api/diagnostic/generate', {
+        method: 'POST',
+      });
+      const genJson = await genRes.json();
+      if (!genRes.ok || !genJson.success) throw new Error(genJson.error ?? 'AI generation failed');
 
-    const result = await generateDiagnosticPassageAction(config);
-    if (result.success && result.data) {
-      try {
-        setStatusMessage('Saving to Firestore...');
-        const passage = result.data as DiagnosticPassage;
-        const res = await fetch('/api/diagnostic', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ passage }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Save failed');
-        setStatusType('success');
-        setStatusMessage(`Saved: ${passage.title}`);
-        loadPassages();
-      } catch (error: unknown) {
-        setStatusType('error');
-        setStatusMessage(`Save failed: ${errorMessage(error)}`);
-      }
-    } else {
+      setStatusMessage('Saving to Firestore...');
+      const passage = genJson.data as DiagnosticPassage;
+      const res = await adminFetch('/api/diagnostic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passage }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Save failed');
+      setStatusType('success');
+      setStatusMessage(`Saved: ${passage.title}`);
+      loadPassages();
+    } catch (error: unknown) {
       setStatusType('error');
-      setStatusMessage(`Error: ${result.error}`);
+      setStatusMessage(`Error: ${errorMessage(error)}`);
+    } finally {
+      setIsGenerating(false);
     }
-
-    setIsGenerating(false);
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this diagnostic passage permanently?')) return;
     try {
-      const res = await fetch(`/api/diagnostic?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/diagnostic?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
       setPassages(passages.filter((passage) => passage.id !== id));
     } catch {
@@ -99,7 +100,7 @@ export default function DiagnosticPage() {
           <Key className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-semibold text-amber-800">API Key Required</p>
-            <p className="text-xs text-amber-600">Configure your AI provider in <Link href="/ai" className="underline font-medium">AI Studio</Link> to enable generation.</p>
+            <p className="text-xs text-amber-600">Configure your AI provider in <Link href="/admin/ai" className="underline font-medium">AI Studio</Link> to enable generation.</p>
           </div>
         </div>
       )}

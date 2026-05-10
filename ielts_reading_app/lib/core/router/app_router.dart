@@ -14,12 +14,16 @@ import '../../features/reading/presentation/passage_page.dart';
 import '../../features/reading/presentation/questions_page.dart';
 import '../../features/progress/presentation/progress_page.dart';
 import '../../features/reading/presentation/result_page.dart';
+import '../../features/synonyms/presentation/synonyms_page.dart';
 import '../../features/vocabulary/presentation/vocabulary_page.dart';
 import '../../features/writing/presentation/editor_page.dart';
+import '../../features/writing/presentation/free_write_essay_page.dart';
+import '../../features/writing/presentation/free_write_result_page.dart';
 import '../../features/writing/presentation/library_page.dart';
 import '../../features/writing/presentation/progress_page.dart';
 import '../../features/writing/presentation/result_page.dart';
 import '../../features/writing/presentation/task_page.dart';
+import '../../features/settings/presentation/settings_page.dart';
 import '../../services/firebase/firebase_providers.dart';
 
 import 'route_names.dart';
@@ -147,6 +151,16 @@ GoRouter appRouter(Ref ref) {
         builder: (context, state) => const VocabularyPage(),
       ),
       GoRoute(
+        path: RoutePaths.synonyms,
+        name: RouteNames.synonyms,
+        builder: (context, state) => const SynonymsPage(),
+      ),
+      GoRoute(
+        path: RoutePaths.settings,
+        name: RouteNames.settings,
+        builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
         path: RoutePaths.writingLibrary,
         name: RouteNames.writingLibrary,
         builder: (context, state) => const WritingLibraryPage(),
@@ -179,6 +193,16 @@ GoRouter appRouter(Ref ref) {
         path: RoutePaths.writingProgress,
         name: RouteNames.writingProgress,
         builder: (context, state) => const WritingProgressPage(),
+      ),
+      GoRoute(
+        path: RoutePaths.freeWriteEssay,
+        name: RouteNames.freeWriteEssay,
+        builder: (context, state) => const FreeWriteEssayPage(),
+      ),
+      GoRoute(
+        path: RoutePaths.freeWriteResult,
+        name: RouteNames.freeWriteResult,
+        builder: (context, state) => const FreeWriteResultPage(),
       ),
       // Add more routes here as we implement them!
     ],

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Users as UsersIcon, Eye, Loader2, Mail, Clock } from 'lucide-react';
 import Link from 'next/link';
+import { adminFetch } from '@/lib/admin-api';
 
 
 interface UserRecord {
@@ -24,7 +25,7 @@ export default function UsersPage() {
     async function loadUsers() {
       setIsLoading(true);
       try {
-        const res = await fetch('/api/users');
+        const res = await adminFetch('/api/users');
         const json = await res.json();
         const rawUsers = json.data ?? [];
 
@@ -155,7 +156,7 @@ export default function UsersPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <Link
-                        href={`/users/${user.uid}`}
+                        href={`/admin/users/${user.uid}`}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors"
                       >
                         <Eye className="h-3.5 w-3.5" />

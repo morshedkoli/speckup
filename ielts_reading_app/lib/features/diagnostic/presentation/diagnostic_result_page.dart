@@ -30,10 +30,11 @@ class DiagnosticResultPage extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.15),
+                    color: Colors.amber.withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(LucideIcons.award, size: 64, color: Colors.amber),
+                  child: const Icon(LucideIcons.award,
+                      size: 64, color: Colors.amber),
                 ),
                 const SizedBox(height: 32),
                 Text(
@@ -47,7 +48,7 @@ class DiagnosticResultPage extends ConsumerWidget {
                 Text(
                   'Based on your answers, your estimated reading band score is:',
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -55,7 +56,7 @@ class DiagnosticResultPage extends ConsumerWidget {
                 Text(
                   score.toStringAsFixed(1),
                   style: theme.textTheme.displayLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     color: theme.colorScheme.primary,
                   ),
                   textAlign: TextAlign.center,

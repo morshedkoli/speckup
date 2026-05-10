@@ -1,10 +1,11 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { requireAdmin } from '@/lib/admin-guard';
 
 async function tryGetAdminDb() {
   try {
-    return getAdminDb();
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    return await getAdminDb();
   } catch (err: any) {
     console.error('Failed to init admin:', err);
     return null;
@@ -12,7 +13,10 @@ async function tryGetAdminDb() {
 }
 
 // GET /api/stats  →  all dashboard counts via Admin SDK
-export async function GET() {
+export async function GET(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   const db = await tryGetAdminDb();
   if (!db) return NextResponse.json({ data: null }, { status: 503 });
 
@@ -28,7 +32,7 @@ export async function GET() {
 
     // Count subcollection docs per user in parallel
     await Promise.all(
-      usersSnap.docs.map(async (userDoc) => {
+      usersSnap.docs.map(async (userDoc: any) => {
         const [rSnap, wSnap] = await Promise.all([
           db.collection('users').doc(userDoc.id).collection('history').count().get(),
           db.collection('users').doc(userDoc.id).collection('writing_history').count().get(),
@@ -52,4 +56,3 @@ export async function GET() {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-

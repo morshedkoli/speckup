@@ -1,7 +1,8 @@
 class TextTokenizer {
   TextTokenizer._();
 
-  static final RegExp _wordTokenRegex = RegExp(r"([a-zA-Z0-9\-']+)|([^a-zA-Z0-9\-']+)");
+  static final RegExp _wordTokenRegex =
+      RegExp(r"([a-zA-Z0-9\-']+)|([^a-zA-Z0-9\-']+)");
 
   /// Splits a passage into a list of word tokens and non-word tokens.
   /// Used for creating TappableText so only actual words highlight as tappable.

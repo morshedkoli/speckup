@@ -41,8 +41,7 @@ class CacheService {
   T? get<T>(String key) {
     // Check expiry
     final expiryMs = _box.get('$_expiryPrefix$key') as int?;
-    if (expiryMs != null &&
-        DateTime.now().millisecondsSinceEpoch > expiryMs) {
+    if (expiryMs != null && DateTime.now().millisecondsSinceEpoch > expiryMs) {
       // Stale — delete silently in the background
       _box.delete(key);
       _box.delete('$_expiryPrefix$key');

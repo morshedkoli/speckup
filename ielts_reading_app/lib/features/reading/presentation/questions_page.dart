@@ -1,243 +1,149 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../core/router/route_names.dart';
-import '../../../core/presentation/widgets/base_scaffold.dart';
-import '../../../core/presentation/widgets/glass_container.dart';
-import '../../../core/presentation/widgets/glass_button.dart';
+import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
+import '../../../shared/widgets/question_navigator.dart';
+import '../../../shared/widgets/quiz_option_tile.dart';
+import '../../../shared/widgets/reading_passage_view.dart';
 import '../domain/models.dart';
 import '../providers/reading_providers.dart';
 
 class QuestionsPage extends ConsumerStatefulWidget {
-  final String type;
   const QuestionsPage({super.key, required this.type});
+
+  final String type;
 
   @override
   ConsumerState<QuestionsPage> createState() => _QuestionsPageState();
 }
 
 class _QuestionsPageState extends ConsumerState<QuestionsPage> {
-  final PageController _pageController = PageController();
   int _currentIndex = 0;
-  bool _passageCollapsed = false;
-
+  bool _showPassage = true;
   late final QuestionType _questionType;
+  late int _remainingSeconds;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _questionType = QuestionType.values.firstWhere(
-      (e) => e.name == widget.type,
+      (type) => type.name == widget.type,
       orElse: () => QuestionType.multipleChoice,
     );
+    _remainingSeconds = 20 * 60;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _remainingSeconds <= 0) return;
+      setState(() => _remainingSeconds -= 1);
+    });
   }
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _timer?.cancel();
     super.dispose();
-  }
-
-  Future<void> _nextPage(int total, List<PracticeQuestion> questions) async {
-    final currentQuestion = questions[_currentIndex];
-    final answer = ref
-            .read(practiceSessionProvider(_questionType))
-            .userAnswers[currentQuestion.id]
-            ?.trim() ??
-        '';
-
-    if (answer.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please answer this question before continuing.'),
-          duration: Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    if (_currentIndex < total - 1) {
-      await _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      await ref
-          .read(practiceSessionProvider(_questionType).notifier)
-          .submitTest();
-      ref.invalidate(availableTypesProvider);
-      ref.invalidate(passageByTypeProvider(_questionType));
-      if (!mounted) return;
-      context.pushReplacementNamed(
-        RouteNames.result,
-        pathParameters: {'type': widget.type},
-      );
-    }
-  }
-
-  void _prevPage() {
-    if (_currentIndex > 0) {
-      _pageController.previousPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final sessionState = ref.watch(practiceSessionProvider(_questionType));
+    final session = ref.watch(practiceSessionProvider(_questionType));
+    final passage = session.passage;
 
-    if (sessionState.passage == null) {
-      return const BaseScaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+    if (passage == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final passage = sessionState.passage!;
     final questions = passage.questions;
-    final total = questions.length;
+    final question = questions[_currentIndex];
+    final answeredIndexes = <int>{
+      for (var i = 0; i < questions.length; i++)
+        if ((session.userAnswers[questions[i].id] ?? '').isNotEmpty) i,
+    };
 
-    return BaseScaffold(
-      appBar: AppBar(
-        title: Text('Question ${_currentIndex + 1} of $total'),
+    return Scaffold(
+      appBar: CustomAppBar(
+        title: 'Reading Test',
+        subtitle: '${_formatTime(_remainingSeconds)} left',
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft),
+          onPressed: () => context.pop(),
+        ),
+        actions: [
+          IconButton(
+            tooltip: _showPassage ? 'Hide passage' : 'Show passage',
+            onPressed: () => setState(() => _showPassage = !_showPassage),
+            icon: Icon(_showPassage ? LucideIcons.eyeOff : LucideIcons.eye),
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // ── Passage panel ──────────────────────────────────────────────
+          QuestionNavigator(
+            count: questions.length,
+            currentIndex: _currentIndex,
+            answeredIndexes: answeredIndexes,
+            onSelected: (index) => setState(() => _currentIndex = index),
+          ),
+          const SizedBox(height: 8),
           AnimatedContainer(
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeInOut,
-            height: _passageCollapsed
-                ? 0
-                : MediaQuery.of(context).size.height * 0.38,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    passage.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    passage.content,
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.65),
-                  ),
-                  const SizedBox(height: 12),
-                ],
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            height: _showPassage ? MediaQuery.sizeOf(context).height * 0.34 : 0,
+            child: AppCard(
+              margin: EdgeInsets.zero,
+              child: ReadingPassageView(
+                title: passage.title,
+                content: passage.content,
+                highlightTerms: _keywords(question.text),
               ),
             ),
           ),
-
-          // ── Drag handle / toggle ────────────────────────────────────────
-          GestureDetector(
-            onTap: () => setState(() => _passageCollapsed = !_passageCollapsed),
-            child: Container(
-              width: double.infinity,
-              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.6),
-              padding: const EdgeInsets.symmetric(vertical: 7),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.onSurface.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    _passageCollapsed ? 'Show Passage' : 'Hide Passage',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.45),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    _passageCollapsed
-                        ? LucideIcons.chevronsDown
-                        : LucideIcons.chevronsUp,
-                    size: 14,
-                    color: theme.colorScheme.onSurface.withOpacity(0.35),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Question panel ──────────────────────────────────────────────
           Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              onPageChanged: (index) => setState(() => _currentIndex = index),
-              itemCount: total,
-              itemBuilder: (context, index) {
-                final question = questions[index];
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildQuestionTypeBadge(theme, question.type),
-                      const SizedBox(height: 20),
-                      Text(
-                        question.text,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildInputForm(
-                        context,
-                        ref,
-                        question,
-                        sessionState.userAnswers[question.id] ?? '',
-                      ),
-                    ],
-                  ),
-                );
+            child: _QuestionPanel(
+              question: question,
+              index: _currentIndex,
+              total: questions.length,
+              value: session.userAnswers[question.id] ?? '',
+              onAnswer: (answer) {
+                HapticFeedback.selectionClick();
+                ref
+                    .read(practiceSessionProvider(_questionType).notifier)
+                    .setAnswer(question.id, answer);
               },
             ),
           ),
-
-          // ── Navigation buttons ──────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
             child: Row(
               children: [
-                if (_currentIndex > 0) ...[
-                  Expanded(
-                    child: GlassButton(
-                      onTap: _prevPage,
-                      backgroundColor:
-                          theme.colorScheme.surface.withOpacity(0.2),
-                      child: const Text('Back'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
                 Expanded(
-                  child: GlassButton(
-                    onTap: () {
-                      _nextPage(total, questions);
-                    },
-                    backgroundColor: theme.colorScheme.primary,
-                    textColor: Colors.white,
-                    child: Text(
-                      _currentIndex < total - 1 ? 'Next' : 'Submit Answers',
+                  child: OutlinedButton.icon(
+                    onPressed: _currentIndex == 0
+                        ? null
+                        : () => setState(() => _currentIndex -= 1),
+                    icon: const Icon(LucideIcons.arrowLeft, size: 18),
+                    label: const Text('Back'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => _nextOrSubmit(questions),
+                    icon: Icon(
+                      _currentIndex == questions.length - 1
+                          ? LucideIcons.send
+                          : LucideIcons.arrowRight,
+                      size: 18,
+                    ),
+                    label: Text(
+                      _currentIndex == questions.length - 1 ? 'Submit' : 'Next',
                     ),
                   ),
                 ),
@@ -249,259 +155,130 @@ class _QuestionsPageState extends ConsumerState<QuestionsPage> {
     );
   }
 
-  Widget _buildQuestionTypeBadge(ThemeData theme, QuestionType type) {
-    String label;
-    IconData icon;
-    switch (type) {
-      case QuestionType.multipleChoice:
-        label = 'MULTIPLE CHOICE';
-        icon = LucideIcons.list;
-        break;
-      case QuestionType.trueFalseNotGiven:
-        label = 'TRUE / FALSE / NOT GIVEN';
-        icon = LucideIcons.helpCircle;
-        break;
-      case QuestionType.yesNoNotGiven:
-        label = 'YES / NO / NOT GIVEN';
-        icon = LucideIcons.messageSquare;
-        break;
-      case QuestionType.matchingHeadings:
-        label = 'MATCHING HEADINGS';
-        icon = LucideIcons.layoutList;
-        break;
-      case QuestionType.matchingInformation:
-        label = 'MATCHING INFORMATION';
-        icon = LucideIcons.fileSearch;
-        break;
-      case QuestionType.matchingFeatures:
-        label = 'MATCHING FEATURES';
-        icon = LucideIcons.gitMerge;
-        break;
-      case QuestionType.matchingSentenceEndings:
-        label = 'MATCHING SENTENCE ENDINGS';
-        icon = LucideIcons.arrowRightCircle;
-        break;
-      case QuestionType.sentenceCompletion:
-        label = 'SENTENCE COMPLETION';
-        icon = LucideIcons.edit;
-        break;
-      case QuestionType.summaryCompletion:
-        label = 'SUMMARY COMPLETION';
-        icon = LucideIcons.fileText;
-        break;
-      case QuestionType.shortAnswer:
-        label = 'SHORT ANSWER';
-        icon = LucideIcons.pencil;
-        break;
-      case QuestionType.fillInTheBlank:
-        label = 'FILL IN THE BLANK';
-        icon = LucideIcons.edit2;
-        break;
+  Future<void> _nextOrSubmit(List<PracticeQuestion> questions) async {
+    if (_currentIndex < questions.length - 1) {
+      setState(() => _currentIndex += 1);
+      return;
     }
 
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.tertiary.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(8),
+    await ref
+        .read(practiceSessionProvider(_questionType).notifier)
+        .submitTest();
+    ref.invalidate(availableTypesProvider);
+    ref.invalidate(passageByTypeProvider(_questionType));
+
+    if (!mounted) return;
+    context.pushReplacementNamed(
+      RouteNames.result,
+      pathParameters: {'type': widget.type},
+    );
+  }
+
+  String _formatTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    final rest = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${rest.toString().padLeft(2, '0')}';
+  }
+
+  List<String> _keywords(String text) {
+    return text
+        .split(RegExp(r'[^A-Za-z]+'))
+        .where((word) => word.length > 5)
+        .take(5)
+        .toList();
+  }
+}
+
+class _QuestionPanel extends StatelessWidget {
+  const _QuestionPanel({
+    required this.question,
+    required this.index,
+    required this.total,
+    required this.value,
+    required this.onAnswer,
+  });
+
+  final PracticeQuestion question;
+  final int index;
+  final int total;
+  final String value;
+  final ValueChanged<String> onAnswer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text(
+          'Question ${index + 1} of $total',
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: theme.colorScheme.tertiary),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.tertiary,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.2,
-              ),
+        const SizedBox(height: 8),
+        Text(
+          question.text,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 20),
+        _AnswerInput(question: question, value: value, onAnswer: onAnswer),
+      ],
+    );
+  }
+}
+
+class _AnswerInput extends StatelessWidget {
+  const _AnswerInput({
+    required this.question,
+    required this.value,
+    required this.onAnswer,
+  });
+
+  final PracticeQuestion question;
+  final String value;
+  final ValueChanged<String> onAnswer;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = _options(question);
+    if (options != null) {
+      return Column(
+        children: [
+          for (var i = 0; i < options.length; i++)
+            QuizOptionTile(
+              label: String.fromCharCode(65 + i),
+              text: options[i],
+              isSelected: value == options[i],
+              onTap: () => onAnswer(options[i]),
             ),
-          ],
-        ),
+        ],
+      );
+    }
+
+    return TextFormField(
+      initialValue: value,
+      onChanged: onAnswer,
+      minLines: 3,
+      maxLines: 5,
+      decoration: const InputDecoration(
+        hintText: 'Type your answer',
       ),
     );
   }
 
-  Widget _buildInputForm(
-    BuildContext context,
-    WidgetRef ref,
-    PracticeQuestion question,
-    String currentVal,
-  ) {
-    final optionTypes = {
-      QuestionType.multipleChoice,
-      QuestionType.matchingHeadings,
-      QuestionType.matchingInformation,
-      QuestionType.matchingFeatures,
-      QuestionType.matchingSentenceEndings,
-    };
-
-    if (optionTypes.contains(question.type) && question.options != null) {
-      return _buildOptionList(context, ref, question, currentVal);
-    }
-
+  List<String>? _options(PracticeQuestion question) {
     if (question.type == QuestionType.trueFalseNotGiven) {
-      return _buildFixedOptionList(
-        context,
-        ref,
-        question,
-        currentVal,
-        ['True', 'False', 'Not Given'],
-      );
+      return const ['True', 'False', 'Not Given'];
     }
     if (question.type == QuestionType.yesNoNotGiven) {
-      return _buildFixedOptionList(
-        context,
-        ref,
-        question,
-        currentVal,
-        ['Yes', 'No', 'Not Given'],
-      );
+      return const ['Yes', 'No', 'Not Given'];
     }
-
-    final textInputTypes = {
-      QuestionType.fillInTheBlank,
-      QuestionType.sentenceCompletion,
-      QuestionType.summaryCompletion,
-      QuestionType.shortAnswer,
-    };
-    if (textInputTypes.contains(question.type)) {
-      return _buildTextInput(context, ref, question, currentVal);
-    }
-
-    return const SizedBox();
-  }
-
-  Widget _buildOptionList(
-    BuildContext context,
-    WidgetRef ref,
-    PracticeQuestion question,
-    String currentVal,
-  ) {
-    final theme = Theme.of(context);
-    return Column(
-      children: question.options!.map((option) {
-        final isSelected = currentVal == option;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: InkWell(
-            onTap: () => ref
-                .read(practiceSessionProvider(_questionType).notifier)
-                .setAnswer(question.id, option),
-            borderRadius: BorderRadius.circular(16),
-            child: GlassContainer(
-              padding: const EdgeInsets.all(14),
-              colorOverride: isSelected
-                  ? theme.colorScheme.primary.withOpacity(0.2)
-                  : null,
-              child: Row(
-                children: [
-                  Icon(
-                    isSelected ? LucideIcons.checkCircle2 : LucideIcons.circle,
-                    size: 20,
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurface.withOpacity(0.4),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      option,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildFixedOptionList(
-    BuildContext context,
-    WidgetRef ref,
-    PracticeQuestion question,
-    String currentVal,
-    List<String> options,
-  ) {
-    final theme = Theme.of(context);
-    return Column(
-      children: options.map((option) {
-        final isSelected = currentVal == option;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: InkWell(
-            onTap: () => ref
-                .read(practiceSessionProvider(_questionType).notifier)
-                .setAnswer(question.id, option),
-            borderRadius: BorderRadius.circular(16),
-            child: GlassContainer(
-              padding: const EdgeInsets.all(14),
-              colorOverride: isSelected
-                  ? theme.colorScheme.primary.withOpacity(0.2)
-                  : null,
-              child: Row(
-                children: [
-                  Icon(
-                    isSelected ? LucideIcons.checkCircle2 : LucideIcons.circle,
-                    size: 20,
-                    color: isSelected
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurface.withOpacity(0.4),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      option,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildTextInput(
-    BuildContext context,
-    WidgetRef ref,
-    PracticeQuestion question,
-    String currentVal,
-  ) {
-    final theme = Theme.of(context);
-    return GlassContainer(
-      padding: const EdgeInsets.all(8),
-      child: TextFormField(
-        initialValue: currentVal,
-        onChanged: (val) => ref
-            .read(practiceSessionProvider(_questionType).notifier)
-            .setAnswer(question.id, val),
-        decoration: InputDecoration(
-          hintText: 'Type your answer here...',
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          filled: true,
-          fillColor: Colors.transparent,
-        ),
-        style: theme.textTheme.titleLarge,
-      ),
-    );
+    return question.options;
   }
 }

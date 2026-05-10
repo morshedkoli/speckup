@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/storage/cache_service.dart';
 import '../../../core/storage/hive_boxes.dart';
+import '../../../core/storage/offline_store.dart';
 import '../domain/models.dart';
 
 part 'shared_passage_repository.g.dart';
@@ -62,8 +63,8 @@ class SharedPassageRepository {
     final cached = _cache.get<Map<String, dynamic>>(_countsKey(uid));
     if (cached != null) {
       return cached.map(
-        (k, v) => MapEntry(parseQuestionType(k)!, (v as num).toInt()),
-      )..removeWhere((k, _) => k == null); // parseQuestionType may return null for unknown
+        (k, v) => MapEntry(parseQuestionType(k), (v as num).toInt()),
+      );
     }
 
     // ── 2. Fetch from Firestore (Source.serverAndCache respects offline mode) ─
@@ -96,10 +97,30 @@ class SharedPassageRepository {
     final seenIds = await _getSeenIds(uid);
     final docs = await _queryTypePassagesSimple(type, limit: 100);
 
+    if (docs.isEmpty) {
+      final cached = OfflineStore(HiveBoxes.offline)
+          .list('reading_passages')
+          .where((record) => record.data['questionType'] == type.name);
+      for (final record in cached) {
+        final id = record.data['id'] as String? ?? record.key.split('/').last;
+        if (seenIds.contains(id)) continue;
+        return PracticePassage.fromMap(record.data);
+      }
+    }
+
     for (final doc in docs) {
       if (!seenIds.contains(doc.id)) {
         try {
-          return _fromFirestore(doc.id, doc.data());
+          final passage = _fromFirestore(doc.id, doc.data());
+          await OfflineStore(HiveBoxes.offline).put(
+            'reading_passages',
+            passage.id,
+            {
+              ...passage.toMap(),
+              'questionType': type.name,
+            },
+          );
+          return passage;
         } catch (_) {
           continue;
         }

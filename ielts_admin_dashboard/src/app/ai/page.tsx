@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { fetchFreeModelsAction } from '@/app/actions';
+// fetchFreeModelsAction removed — see loadFreeModels() below for why
 import {
   FullAIConfig, DEFAULT_FULL_CONFIG, GOOGLE_AI_MODELS, GOOGLE_IMAGE_MODELS,
-  FREE_MODELS_STORAGE_KEY,
+  FREE_MODELS_STORAGE_KEY, TASK_TYPES, DEFAULT_CF_MODEL_ASSIGNMENTS,
 } from '@/lib/ai-config';
+import { CF_TEXT_MODELS } from '@/lib/cloudflare-ai';
+import { adminFetch } from '@/lib/admin-api';
 import {
   Sparkles, Loader2, CheckCircle2, Key, Save, Eye, EyeOff,
-  Download, Shield, Cpu, AlertTriangle, ToggleLeft, ToggleRight, Layers, ImageIcon, Upload,
+  Download, Shield, Cpu, AlertTriangle, ToggleLeft, ToggleRight, Layers, ImageIcon, Upload, Zap,
 } from 'lucide-react';
 
 type ModelInfo = { id: string; name: string };
@@ -39,7 +41,7 @@ export default function AIStudioPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/ai-config');
+        const res = await adminFetch('/api/ai-config');
         const json = await res.json();
         if (json.data) setConfig({ ...DEFAULT_FULL_CONFIG, ...json.data });
       } catch (e: any) {
@@ -56,6 +58,10 @@ export default function AIStudioPage() {
     setConfig(c => ({ ...c, googleAI: { ...c.googleAI, ...patch } }));
   const setOR = (patch: Partial<typeof config.openRouter>) =>
     setConfig(c => ({ ...c, openRouter: { ...c.openRouter, ...patch } }));
+  const setCF = (patch: Partial<typeof config.cloudflareAI>) =>
+    setConfig(c => ({ ...c, cloudflareAI: { ...c.cloudflareAI, ...patch } }));
+  const setCFModel = (task: string, model: string) =>
+    setConfig(c => ({ ...c, cloudflareAI: { ...c.cloudflareAI, models: { ...c.cloudflareAI.models, [task]: model } } }));
 
   function toggleFallback(modelId: string) {
     const cur = config.openRouter.fallbackModels;
@@ -66,28 +72,48 @@ export default function AIStudioPage() {
     if (!config.openRouter.apiKey || config.openRouter.apiKey.length < 10) {
       setModelsError('Enter a valid OpenRouter API key first.'); return;
     }
-    setIsLoadingModels(true); setModelsError('');
-    const res = await fetchFreeModelsAction(config.openRouter.apiKey);
-    if (res.success && res.models) {
-      const models = res.models as ModelInfo[];
+    setIsLoadingModels(true);
+    setModelsError('');
+    try {
+      // ⚠️ IMPORTANT: This fetch runs CLIENT-SIDE (browser), NOT server-side.
+      // Firebase Spark (free) plan blocks outbound requests from Cloud Run/Functions
+      // to external non-Google URLs (like openrouter.ai). Running it client-side
+      // bypasses that restriction entirely — the browser has no such limitation.
+      const res = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: { 'Authorization': `Bearer ${config.openRouter.apiKey}` },
+      });
+      if (!res.ok) throw new Error(`OpenRouter returned ${res.status}`);
+      const data = await res.json();
+      const models: ModelInfo[] = (data.data || [])
+        .filter((m: any) => parseFloat(m.pricing?.prompt || '1') === 0 && parseFloat(m.pricing?.completion || '1') === 0)
+        .map((m: any) => ({ id: m.id as string, name: (m.name || m.id) as string }))
+        .sort((a: ModelInfo, b: ModelInfo) => a.name.localeCompare(b.name));
       setFreeModels(models);
       try { localStorage.setItem(FREE_MODELS_STORAGE_KEY, JSON.stringify(models)); } catch (_) {}
       if (!config.openRouter.primaryModel && models.length > 0) setOR({ primaryModel: models[0].id });
-    } else {
-      setModelsError(res.error || 'Failed to load models');
+    } catch (err: any) {
+      setModelsError(err.message || 'Failed to load models');
+    } finally {
+      setIsLoadingModels(false);
     }
-    setIsLoadingModels(false);
   }
 
   async function saveConfig() {
     setIsSaving(true); setSaveMsg('');
     try {
-      const res = await fetch('/api/ai-config', {
+      const res = await adminFetch('/api/ai-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
       });
-      const json = await res.json();
+
+      // Safely parse: the server might return plain-text on a crash (500)
+      const text = await res.text();
+      let json: any = {};
+      try { json = JSON.parse(text); } catch {
+        throw new Error(`HTTP ${res.status}: ${text.slice(0, 120)}`);
+      }
+
       if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
       setSaveMsg('Saved to Firestore!');
       setTimeout(() => setSaveMsg(''), 3000);
@@ -100,6 +126,7 @@ export default function AIStudioPage() {
   const modelName = (id: string) => freeModels.find(m => m.id === id)?.name ?? id;
   const hasGoogle = config.googleAI.enabled && config.googleAI.apiKey.length > 10;
   const hasOR = config.openRouter.enabled && config.openRouter.apiKey.length > 10;
+  const hasCF = config.cloudflareAI?.textEnabled && (config.cloudflareAI?.apiToken?.length || 0) > 10;
   const hasModels = freeModels.length > 0;
   const filteredModels = modelSearch
     ? freeModels.filter(m => m.name.toLowerCase().includes(modelSearch.toLowerCase()) || m.id.toLowerCase().includes(modelSearch.toLowerCase()))
@@ -130,15 +157,20 @@ export default function AIStudioPage() {
       </div>
 
       {/* Provider flow banner */}
-      <div className="bg-gradient-to-r from-blue-50 to-violet-50 border border-indigo-100 rounded-xl p-4 mb-8 flex flex-wrap items-center gap-3">
+      <div className="bg-gradient-to-r from-blue-50 via-amber-50 to-violet-50 border border-indigo-100 rounded-xl p-4 mb-8 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-sm font-medium text-indigo-800">
           <span className="px-2.5 py-1 bg-indigo-100 rounded-md text-[10px] font-bold text-indigo-700 uppercase tracking-wide">Primary</span>
           Google AI (Gemini)
         </div>
         <span className="text-gray-300 text-xl">→</span>
+        <div className="flex items-center gap-2 text-sm font-medium text-amber-700">
+          <span className="px-2.5 py-1 bg-amber-100 rounded-md text-[10px] font-bold text-amber-600 uppercase tracking-wide">1st Fallback</span>
+          Cloudflare AI
+        </div>
+        <span className="text-gray-300 text-xl">→</span>
         <div className="flex items-center gap-2 text-sm font-medium text-violet-700">
-          <span className="px-2.5 py-1 bg-violet-100 rounded-md text-[10px] font-bold text-violet-600 uppercase tracking-wide">Fallback</span>
-          OpenRouter (Free Models)
+          <span className="px-2.5 py-1 bg-violet-100 rounded-md text-[10px] font-bold text-violet-600 uppercase tracking-wide">2nd Fallback</span>
+          OpenRouter
         </div>
         <span className="ml-auto text-xs text-indigo-400 italic">Automatic failover between providers</span>
       </div>
@@ -336,39 +368,37 @@ export default function AIStudioPage() {
       </div>
 
       {/* ═══════════ CLOUDFLARE WORKERS AI ═══════════ */}
-      <div className={`bg-white rounded-xl border shadow-sm mb-6 overflow-hidden ${config.imageProvider === 'cloudflare' ? 'border-sky-200 ring-1 ring-sky-100' : 'border-gray-200/80 opacity-80'}`}>
+      <div className={`bg-white rounded-xl border shadow-sm mb-6 overflow-hidden ${
+        config.cloudflareAI?.textEnabled || config.imageProvider === 'cloudflare'
+          ? 'border-amber-200 ring-1 ring-amber-100' : 'border-gray-200/80 opacity-80'
+      }`}>
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-sky-50">
-              <ImageIcon className="h-5 w-5 text-sky-600" />
+            <div className="p-2 rounded-lg bg-amber-50">
+              <Zap className="h-5 w-5 text-amber-600" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-gray-900">
                 Cloudflare Workers AI
-                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-600 font-bold uppercase tracking-wide">Image Gen</span>
+                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold uppercase tracking-wide">1st Fallback</span>
               </h2>
-              <p className="text-xs text-gray-400">FLUX.1 Schnell model for high-quality charts</p>
+              <p className="text-xs text-gray-400">Text generation (Llama, Qwen, Gemma, Mistral) + image generation (FLUX)</p>
             </div>
           </div>
-          <button onClick={() => setConfig(c => ({ ...c, imageProvider: c.imageProvider === 'cloudflare' ? 'google' : 'cloudflare' }))}
-            className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${config.imageProvider === 'cloudflare' ? 'text-sky-600' : 'text-gray-400'}`}>
-            {config.imageProvider === 'cloudflare' ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
-            {config.imageProvider === 'cloudflare' ? 'Active Provider' : 'Enable Provider'}
-          </button>
         </div>
         <div className="p-5 space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">Account ID</label>
             <input type="text" value={config.cloudflareAI?.accountId || ''}
-              onChange={e => setConfig(c => ({ ...c, cloudflareAI: { ...c.cloudflareAI, accountId: e.target.value } }))} placeholder="Cloudflare Account ID"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-mono focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none transition-all" />
+              onChange={e => setCF({ accountId: e.target.value })} placeholder="Cloudflare Account ID"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-mono focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none transition-all" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">API Token</label>
             <div className="relative">
               <input type={showCFKey ? 'text' : 'password'} value={config.cloudflareAI?.apiToken || ''}
-                onChange={e => setConfig(c => ({ ...c, cloudflareAI: { ...c.cloudflareAI, apiToken: e.target.value } }))} placeholder="Cloudflare API Token"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 pr-10 text-sm font-mono focus:border-sky-500 focus:ring-2 focus:ring-sky-100 outline-none transition-all" />
+                onChange={e => setCF({ apiToken: e.target.value })} placeholder="Cloudflare API Token"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 pr-10 text-sm font-mono focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none transition-all" />
               <button onClick={() => setShowCFKey(!showCFKey)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                 {showCFKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -380,6 +410,103 @@ export default function AIStudioPage() {
           {(config.cloudflareAI?.apiToken?.length || 0) > 10 && (
             <p className="text-xs text-green-600 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> API token configured</p>
           )}
+
+          {/* ── Text Generation Toggle ── */}
+          <div className={`rounded-xl border p-4 transition-colors ${
+            config.cloudflareAI?.textEnabled
+              ? 'border-amber-200 bg-amber-50/40'
+              : 'border-gray-100 bg-gray-50/60'
+          }`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-md ${
+                  config.cloudflareAI?.textEnabled ? 'bg-amber-100' : 'bg-gray-100'
+                }`}>
+                  <Cpu className={`w-4 h-4 ${
+                    config.cloudflareAI?.textEnabled ? 'text-amber-600' : 'text-gray-400'
+                  }`} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-800">
+                    Text Generation
+                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold uppercase tracking-wide">Free 10K Neurons/day</span>
+                  </p>
+                  <p className="text-[11px] text-gray-400">Use Cloudflare AI as first fallback for all content generation</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setCF({ textEnabled: !config.cloudflareAI?.textEnabled })}
+                className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                  config.cloudflareAI?.textEnabled ? 'text-amber-600' : 'text-gray-400'
+                }`}
+              >
+                {config.cloudflareAI?.textEnabled
+                  ? <ToggleRight className="w-5 h-5" />
+                  : <ToggleLeft className="w-5 h-5" />}
+                {config.cloudflareAI?.textEnabled ? 'Enabled' : 'Disabled'}
+              </button>
+            </div>
+
+            {config.cloudflareAI?.textEnabled && (
+              <div className="space-y-3 mt-4">
+                <p className="text-[11px] text-amber-700 font-medium uppercase tracking-wide">Model Assignment Per Task</p>
+                {TASK_TYPES.map(task => (
+                  <div key={task.key} className="flex items-center gap-3">
+                    <span className="text-lg shrink-0">{task.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs font-medium text-gray-700 mb-1">{task.label}</label>
+                      <select
+                        value={config.cloudflareAI?.models?.[task.key] || DEFAULT_CF_MODEL_ASSIGNMENTS[task.key]}
+                        onChange={e => setCFModel(task.key, e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-100 outline-none"
+                      >
+                        {CF_TEXT_MODELS.map(m => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {CF_TEXT_MODELS.find(m => m.id === (config.cloudflareAI?.models?.[task.key] || DEFAULT_CF_MODEL_ASSIGNMENTS[task.key]))?.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Image Generation Toggle ── */}
+          <div className={`rounded-xl border p-4 transition-colors ${
+            config.imageProvider === 'cloudflare'
+              ? 'border-sky-200 bg-sky-50/40'
+              : 'border-gray-100 bg-gray-50/60'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-md ${
+                  config.imageProvider === 'cloudflare' ? 'bg-sky-100' : 'bg-gray-100'
+                }`}>
+                  <ImageIcon className={`w-4 h-4 ${
+                    config.imageProvider === 'cloudflare' ? 'text-sky-600' : 'text-gray-400'
+                  }`} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-800">Image Generation (FLUX.1 Schnell)</p>
+                  <p className="text-[11px] text-gray-400">High-quality chart images for Academic Report tasks</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setConfig(c => ({ ...c, imageProvider: c.imageProvider === 'cloudflare' ? 'google' : 'cloudflare' }))}
+                className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                  config.imageProvider === 'cloudflare' ? 'text-sky-600' : 'text-gray-400'
+                }`}
+              >
+                {config.imageProvider === 'cloudflare'
+                  ? <ToggleRight className="w-5 h-5" />
+                  : <ToggleLeft className="w-5 h-5" />}
+                {config.imageProvider === 'cloudflare' ? 'Active' : 'Disabled'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -425,7 +552,7 @@ export default function AIStudioPage() {
       </div>
 
       {/* No provider warning */}
-      {!hasGoogle && !hasOR && (
+      {!hasGoogle && !hasCF && !hasOR && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
           <div>
@@ -451,7 +578,7 @@ export default function AIStudioPage() {
       </div>
 
       {/* Active Config Summary */}
-      {(hasGoogle || hasOR) && (
+      {(hasGoogle || hasCF || hasOR) && (
         <div className="bg-gradient-to-r from-slate-50 to-indigo-50 rounded-xl border border-indigo-100 p-5">
           <div className="flex items-center gap-2 mb-4">
             <Shield className="h-5 w-5 text-indigo-500" />
@@ -469,10 +596,20 @@ export default function AIStudioPage() {
               </div>
               {hasGoogle ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> : <span className="text-xs text-gray-300">—</span>}
             </div>
-            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-violet-100">
-              <div className="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center text-xs font-bold text-violet-600">2</div>
+            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-amber-100">
+              <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center text-xs font-bold text-amber-600">2</div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-gray-700">OpenRouter (Fallback)</p>
+                <p className="text-xs font-semibold text-gray-700">Cloudflare AI (1st Fallback)</p>
+                {hasCF
+                  ? <p className="text-xs text-gray-500 truncate">Text gen enabled — {Object.values(config.cloudflareAI.models || {}).filter(Boolean).length} task models configured</p>
+                  : <p className="text-xs text-gray-400">{config.cloudflareAI?.apiToken ? 'Text gen disabled' : 'Not configured'}</p>}
+              </div>
+              {hasCF ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> : <span className="text-xs text-gray-300">—</span>}
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-violet-100">
+              <div className="w-6 h-6 rounded-full bg-violet-100 flex items-center justify-center text-xs font-bold text-violet-600">3</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-gray-700">OpenRouter (2nd Fallback)</p>
                 {hasOR
                   ? <p className="text-xs text-gray-500 truncate">{modelName(config.openRouter.primaryModel)}{config.openRouter.fallbackModels.length > 0 && ` + ${config.openRouter.fallbackModels.length} more`}</p>
                   : <p className="text-xs text-gray-400">Not configured</p>}

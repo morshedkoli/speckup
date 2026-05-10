@@ -23,7 +23,7 @@ class PassageRepository {
   /// Firestore, together with the count of passages for each type.
   Future<Map<QuestionType, int>> getAvailableTypes() async {
     final cacheKey = 'passage_types_all';
-    
+
     // 1. Check cache
     final cached = _cache.get<Map<String, dynamic>>(cacheKey);
     if (cached != null) {
@@ -151,5 +151,6 @@ class PassageRepository {
 
 @riverpod
 PassageRepository passageRepository(Ref ref) {
-  return PassageRepository(FirebaseFirestore.instance, CacheService(HiveBoxes.cache));
+  return PassageRepository(
+      FirebaseFirestore.instance, CacheService(HiveBoxes.cache));
 }

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../../../core/presentation/widgets/base_scaffold.dart';
-import '../../../core/presentation/widgets/glass_container.dart';
-import '../../../core/presentation/widgets/glass_button.dart';
+
+import '../../../core/theme/app_colors.dart';
 import '../../../services/firebase/firebase_providers.dart';
 
 class LoginPage extends ConsumerWidget {
@@ -11,65 +10,106 @@ class LoginPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final theme = Theme.of(context);
-    
-    return BaseScaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: GlassContainer(
+
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Logo
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                    ),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     LucideIcons.graduationCap,
-                    size: 48,
-                    color: theme.colorScheme.primary,
+                    size: 36,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Title
+                Text(
+                  'SpeakUp',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Master IELTS with AI-powered\npractice and instant feedback.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textMuted(context),
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 40),
+
+                // Google sign-in button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      try {
+                        await ref.read(authServiceProvider).signInWithGoogle();
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(e.toString())),
+                          );
+                        }
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: BorderSide(
+                        color: isDark ? AppColors.zinc700 : AppColors.zinc300,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          LucideIcons.chrome,
+                          size: 18,
+                          color: AppColors.text(context),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Continue with Google',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // Footer
                 Text(
-                  'SpeakUp Reading',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Master your IELTS Reading skills with AI-powered diagnostics and targeted practice.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 48),
-                GlassButton(
-                  onTap: () async {
-                    try {
-                      await ref.read(authServiceProvider).signInWithGoogle();
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(e.toString())),
-                        );
-                      }
-                    }
-                  },
-                  backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(LucideIcons.chrome, size: 20),
-                      const SizedBox(width: 12),
-                      const Text('Continue with Google'),
-                    ],
+                  'Free to use · No credit card required',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textMuted(context),
+                    fontSize: 12,
                   ),
                 ),
               ],

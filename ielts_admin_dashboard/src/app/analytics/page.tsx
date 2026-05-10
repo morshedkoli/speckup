@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { BarChart3, BookOpen, PenTool, Users, Activity, Award, TrendingUp } from 'lucide-react';
+import { adminFetch } from '@/lib/admin-api';
 
 
 interface AnalyticsData {
@@ -22,7 +23,7 @@ export default function AnalyticsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/analytics')
+    adminFetch('/api/analytics')
       .then((r) => r.json())
       .then((json) => { if (json.data) setData(json.data); })
       .catch((err) => console.error('Failed to load analytics', err))

@@ -88,7 +88,8 @@ class WritingLibraryPage extends ConsumerWidget {
               children: [
                 Expanded(
                   child: GlassContainer(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
                     child: Row(
                       children: [
                         const ShimmerBox(width: 18, height: 18, radius: 4),
@@ -108,7 +109,8 @@ class WritingLibraryPage extends ConsumerWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: GlassContainer(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
                     child: Row(
                       children: [
                         const ShimmerBox(width: 18, height: 18, radius: 4),
@@ -128,30 +130,33 @@ class WritingLibraryPage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 20),
-            ...List.generate(3, (index) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: GlassContainer(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    const ShimmerBox(width: 42, height: 42, radius: 12),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          ShimmerBox(width: 150, height: 16),
-                          SizedBox(height: 6),
-                          ShimmerBox(width: double.infinity, height: 12),
-                        ],
+            ...List.generate(
+                3,
+                (index) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: GlassContainer(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            const ShimmerBox(width: 42, height: 42, radius: 12),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: const [
+                                  ShimmerBox(width: 150, height: 16),
+                                  SizedBox(height: 6),
+                                  ShimmerBox(
+                                      width: double.infinity, height: 12),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            const ShimmerBox(width: 50, height: 24, radius: 20),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    const ShimmerBox(width: 50, height: 24, radius: 20),
-                  ],
-                ),
-              ),
-            )),
+                    )),
           ],
         ),
         error: (err, _) => _ErrorView(
@@ -169,7 +174,7 @@ class WritingLibraryPage extends ConsumerWidget {
                   Text(
                     'Select Writing Task',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: -0.5,
                         ),
                   ),
@@ -262,7 +267,7 @@ class _StatChip extends StatelessWidget {
                 Text(
                   label,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
                       ),
                 ),

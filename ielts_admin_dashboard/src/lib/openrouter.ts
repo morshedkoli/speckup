@@ -1,8 +1,9 @@
 import { DiagnosticPassage, PracticePassage, QuestionType, VocabularyWord, WritingChartType, WritingTask, WritingTaskType } from '@/types';
 import { OpenRouterPrompts } from './prompts';
 import { callGoogleAI } from './googleai';
-import { FullAIConfig } from './ai-config';
+import { FullAIConfig, TaskType } from './ai-config';
 import { buildChartImagePrompt, generateAndHostChartImage } from './imagen';
+import { callCloudflareAI, CF_TEXT_FALLBACKS } from './cloudflare-ai';
 
 // Keep legacy AIConfig export so existing imports don't break
 export interface AIConfig {
@@ -24,11 +25,10 @@ const BUILTIN_OPENROUTER_FALLBACKS = [
 ];
 
 // ─── Google AI model rotation when primary hits quota ─────────────────────────
+// Only include models that are currently active on the free tier.
 const GOOGLE_AI_QUOTA_FALLBACKS = [
   'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-8b',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
+  'gemini-2.0-flash',
 ];
 
 export async function callOpenRouter(prompt: string, model: string, apiKey: string): Promise<string> {
@@ -37,7 +37,7 @@ export async function callOpenRouter(prompt: string, model: string, apiKey: stri
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://speakup-ai-admin.vercel.app',
+      'HTTP-Referer': 'https://speakup-ai-prod.web.app',
       'X-Title': 'IELTS Admin Dashboard',
     },
     body: JSON.stringify({
@@ -58,15 +58,30 @@ export async function callOpenRouter(prompt: string, model: string, apiKey: stri
   return content;
 }
 
-/** Returns true if the error is a rate-limit/quota error (don't retry, just rotate). */
-function isRateLimitError(e: any): boolean {
+/**
+ * Returns true ONLY for fatal auth errors (invalid API key).
+ * When this returns true we BREAK out of the model loop — no point trying
+ * other models with the same broken key.
+ *
+ * Everything else (429 quota, 404 model-not-found, 500 server error, timeouts)
+ * should just skip to the next model.
+ */
+function isFatalAuthError(e: any): boolean {
   const msg: string = e?.message ?? '';
-  return msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota');
+  return (
+    (msg.includes('401') || msg.includes('403')) &&
+    !msg.includes('429') // safety: some APIs bundle 429 info in 403 messages
+  );
 }
 
-// ─── Dual-provider generation with full model rotation ────────────────────────
+// ─── Triple-provider generation with full model rotation ──────────────────────
+// Order: Google AI (primary) → Cloudflare Workers AI (1st fallback) → OpenRouter (2nd fallback)
 
-async function generateWithFallback(prompt: string, config: FullAIConfig): Promise<string> {
+async function generateWithFallback(
+  prompt: string,
+  config: FullAIConfig,
+  taskType?: TaskType,
+): Promise<string> {
   const errors: string[] = [];
 
   // 1. Try Google AI — primary model first, then auto-rotate through quota fallbacks
@@ -82,15 +97,56 @@ async function generateWithFallback(prompt: string, config: FullAIConfig): Promi
         console.log(`[Google AI] Trying ${model}…`);
         return await callGoogleAI(prompt, model, config.googleAI.apiKey);
       } catch (e: any) {
-        console.warn(`[Google AI] ${model} failed: ${e.message}`);
+        console.warn(`[Google AI] ${model} failed: ${e.message?.slice(0, 120)}`);
         errors.push(`Google AI (${model}): ${e.message}`);
-        if (!isRateLimitError(e)) break; // Non-quota error — stop trying Google models
+        if (isFatalAuthError(e)) break; // Bad API key — no point trying more models
+        // Otherwise (429 quota, 404 model gone, 500 etc.) → try next model
       }
     }
+  } else {
+    console.log('[Fallback] Google AI skipped — disabled or no API key');
   }
 
-  // 2. Fall back to OpenRouter — configured models first, then built-in safety net
-  if (config.openRouter.enabled && config.openRouter.apiKey) {
+  // 2. Try Cloudflare Workers AI — activates automatically if credentials exist
+  //    textEnabled controls priority in the UI; credentials alone are enough to try as fallback
+  const cfHasCreds = config.cloudflareAI?.accountId && config.cloudflareAI?.apiToken;
+  if (cfHasCreds) {
+    // Pick the model assigned to this task type, or the default Llama 4 Scout
+    const assignedModel = taskType && config.cloudflareAI.models?.[taskType]
+      ? config.cloudflareAI.models[taskType]
+      : '@cf/meta/llama-4-scout-17b-16e-instruct';
+
+    // Build unique model list: assigned model first, then remaining fallbacks
+    const cfModels = [
+      assignedModel,
+      ...CF_TEXT_FALLBACKS.filter((m) => m !== assignedModel),
+    ];
+
+    for (const model of cfModels) {
+      try {
+        console.log(`[CF-AI Text] Trying ${model} for task=${taskType ?? 'general'}…`);
+        return await callCloudflareAI(
+          prompt,
+          model,
+          config.cloudflareAI.accountId,
+          config.cloudflareAI.apiToken,
+        );
+      } catch (e: any) {
+        console.warn(`[CF-AI Text] ${model} failed: ${e.message?.slice(0, 120)}`);
+        errors.push(`Cloudflare AI (${model}): ${e.message}`);
+        if (isFatalAuthError(e)) break; // Bad token — no point trying more models
+        // Otherwise (quota, model not found, server error) → try next model
+      }
+    }
+  } else {
+    console.log('[Fallback] Cloudflare AI skipped — no Account ID or API Token configured');
+  }
+
+  // 3. Fall back to OpenRouter — configured models first, then built-in safety net
+  //    Built-in free models are ALWAYS tried as last resort even without an API key
+  const orApiKey = config.openRouter.apiKey || '';
+  const orEnabled = config.openRouter.enabled || errors.length > 0; // force-enable if previous providers failed
+  if (orEnabled && orApiKey) {
     const configured = [
       config.openRouter.primaryModel,
       ...config.openRouter.fallbackModels,
@@ -105,13 +161,15 @@ async function generateWithFallback(prompt: string, config: FullAIConfig): Promi
     for (const model of allModels) {
       try {
         console.log(`[OpenRouter] Trying ${model}…`);
-        return await callOpenRouter(prompt, model, config.openRouter.apiKey);
+        return await callOpenRouter(prompt, model, orApiKey);
       } catch (e: any) {
-        console.warn(`[OpenRouter] ${model} failed: ${e.message}`);
+        console.warn(`[OpenRouter] ${model} failed: ${e.message?.slice(0, 120)}`);
         errors.push(`OpenRouter (${model}): ${e.message}`);
         // Always continue to next model — free models rate-limit independently
       }
     }
+  } else if (!orApiKey) {
+    console.log('[Fallback] OpenRouter skipped — no API key configured');
   }
 
   throw new Error(`All AI providers failed:\n${errors.join('\n')}`);
@@ -122,7 +180,7 @@ async function generateWithFallback(prompt: string, config: FullAIConfig): Promi
 export class AIService {
   static async generatePracticeSession(type: QuestionType, config: FullAIConfig): Promise<PracticePassage> {
     const prompt = OpenRouterPrompts.generatePassagePrompt(type);
-    const responseText = await generateWithFallback(prompt, config);
+    const responseText = await generateWithFallback(prompt, config, 'reading');
     return this._parsePracticePassage(responseText);
   }
 
@@ -132,14 +190,24 @@ export class AIService {
     chartType?: WritingChartType,
   ): Promise<WritingTask> {
     const prompt = OpenRouterPrompts.generateWritingTaskPrompt(type, chartType);
-    const responseText = await generateWithFallback(prompt, config);
+    const responseText = await generateWithFallback(prompt, config, 'writing');
     return this._parseWritingTask(responseText);
   }
 
   static async generateDiagnosticPassage(config: FullAIConfig): Promise<DiagnosticPassage> {
     const prompt = OpenRouterPrompts.generateDiagnosticPassagePrompt();
-    const responseText = await generateWithFallback(prompt, config);
+    const responseText = await generateWithFallback(prompt, config, 'diagnostic');
     return this._parseDiagnosticPassage(responseText);
+  }
+
+  static async evaluateWritingTask(
+    task: any,
+    userResponse: string,
+    config: FullAIConfig
+  ): Promise<any> {
+    const prompt = OpenRouterPrompts.evaluateWritingResponsePrompt(JSON.stringify(task), userResponse);
+    const responseText = await generateWithFallback(prompt, config, 'evaluation');
+    return this._extractJsonObject(responseText);
   }
 
   static async generateVocabularyWords(
@@ -147,12 +215,16 @@ export class AIService {
     existingWords: string[] = [],
   ): Promise<VocabularyWord[]> {
     const prompt = OpenRouterPrompts.generateVocabularyWordsPrompt(existingWords);
-    const responseText = await generateWithFallback(prompt, config);
+    const responseText = await generateWithFallback(prompt, config, 'vocabulary');
     return this._parseVocabularyWords(responseText);
   }
 
   private static _extractJsonObject(rawContent: string): any {
-    let text = rawContent.trim();
+    // 0. Sanitize: remove ASCII control characters that break JSON parsers
+    //    (some models emit raw \x00-\x1F outside of strings when handling Unicode)
+    let text = rawContent
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '') // strip control chars (keep \t \n \r)
+      .trim();
 
     // 1. Try pulling from a ```json ... ``` code fence
     const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
@@ -172,6 +244,10 @@ export class AIService {
       }
     }
 
+    // 2.5. Escape raw newlines/tabs INSIDE JSON string values.
+    //      Models like Llama emit literal \n inside "content": "..." which is invalid JSON.
+    text = AIService._escapeNewlinesInJsonStrings(text);
+
     // 3. Try parsing as-is
     try {
       return JSON.parse(text);
@@ -184,6 +260,52 @@ export class AIService {
         throw new Error(`JSON parse failed after repair: ${finalErr.message}\nRaw (first 300 chars): ${text.slice(0, 300)}`);
       }
     }
+  }
+
+  /**
+   * Walk through JSON text and escape raw control characters (newline, carriage return,
+   * tab) that appear INSIDE string literals. Outside strings, whitespace is fine.
+   * This fixes "Bad control character in string literal" from models that output
+   * literal newlines inside JSON string values.
+   */
+  private static _escapeNewlinesInJsonStrings(text: string): string {
+    const chars: string[] = [];
+    let inString = false;
+    let escaped = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+
+      if (escaped) {
+        // Previous char was \, this char is already an escape sequence — keep as-is
+        chars.push(ch);
+        escaped = false;
+        continue;
+      }
+
+      if (ch === '\\' && inString) {
+        chars.push(ch);
+        escaped = true;
+        continue;
+      }
+
+      if (ch === '"') {
+        inString = !inString;
+        chars.push(ch);
+        continue;
+      }
+
+      // Inside a string, raw control characters must be escaped
+      if (inString) {
+        if (ch === '\n') { chars.push('\\', 'n'); continue; }
+        if (ch === '\r') { chars.push('\\', 'r'); continue; }
+        if (ch === '\t') { chars.push('\\', 't'); continue; }
+      }
+
+      chars.push(ch);
+    }
+
+    return chars.join('');
   }
 
   /** Close any unclosed arrays/objects so truncated model output can be parsed */
@@ -209,7 +331,31 @@ export class AIService {
     // If we're in the middle of a string value, close it
     if (inString) s += '"';
     // Close remaining open containers in reverse order
-    return s + stack.reverse().join('');
+    const closed = s + stack.reverse().join('');
+
+    // Secondary strategy: if the text contains "words" array, try to truncate
+    // at the last complete object boundary to recover partial vocabulary lists.
+    // This handles cases where Bangla characters cause a mid-item break.
+    try {
+      JSON.parse(closed);
+      return closed;
+    } catch {
+      // Find the last complete word object — look for the pattern },{ or },\n{
+      // and truncate the "words" array there.
+      const wordsArrayStart = s.indexOf('"words"');
+      if (wordsArrayStart !== -1) {
+        // Find last complete }, before the truncation point
+        const lastComplete = s.lastIndexOf('},');
+        if (lastComplete !== -1 && lastComplete > wordsArrayStart) {
+          const truncated = s.slice(0, lastComplete + 1) + ']}';
+          try {
+            JSON.parse(truncated);
+            return truncated;
+          } catch { /* fall through */ }
+        }
+      }
+      return closed;
+    }
   }
 
   private static _parsePracticePassage(rawContent: string): PracticePassage {
@@ -271,6 +417,13 @@ export class AIService {
     const data = this._extractJsonObject(rawContent);
     const rawWords = Array.isArray(data.words) ? data.words : [];
     const seen = new Set<string>();
+    const cleanWordList = (value: unknown): string[] =>
+      Array.isArray(value)
+        ? value
+            .map((item) => String(item || '').trim())
+            .filter(Boolean)
+            .slice(0, 5)
+        : [];
 
     return rawWords
       .map((item: any) => {
@@ -285,6 +438,8 @@ export class AIService {
           englishMeaning: String(item.englishMeaning || '').trim(),
           banglaMeaning: String(item.banglaMeaning || '').trim(),
           exampleSentence: String(item.exampleSentence || '').trim(),
+          synonyms: cleanWordList(item.synonyms),
+          antonyms: cleanWordList(item.antonyms),
           level: String(item.level || 'Advanced').trim(),
         };
       })

@@ -23,11 +23,14 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError('DefaultFirebaseOptions have not been configured for macos.');
+        throw UnsupportedError(
+            'DefaultFirebaseOptions have not been configured for macos.');
       case TargetPlatform.windows:
-        throw UnsupportedError('DefaultFirebaseOptions have not been configured for windows.');
+        throw UnsupportedError(
+            'DefaultFirebaseOptions have not been configured for windows.');
       case TargetPlatform.linux:
-        throw UnsupportedError('DefaultFirebaseOptions have not been configured for linux.');
+        throw UnsupportedError(
+            'DefaultFirebaseOptions have not been configured for linux.');
       default:
         throw UnsupportedError(
           'DefaultFirebaseOptions are not supported for this platform.',
@@ -60,5 +63,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'speakup-ai-prod.firebasestorage.app',
     iosBundleId: 'com.morshed.ieltsReadingApp',
   );
-
 }

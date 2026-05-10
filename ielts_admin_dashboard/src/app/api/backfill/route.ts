@@ -1,15 +1,18 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { requireAdmin } from '@/lib/admin-guard';
 
 // POST /api/backfill
 // Copies the `type` field into `questionType` for every shared_passages doc
 // that is missing `questionType`. Safe to run multiple times (idempotent).
-export async function POST() {
+export async function POST(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   try {
-    const { getAdminDb } = await import('@/lib/firebase-admin');
-    const { FieldValue } = await import('firebase-admin/firestore');
-    const db = getAdminDb();
+    const { getAdminDb, getFieldValue } = await import('@/lib/firebase-admin');
+    const FieldValue = await getFieldValue();
+    const db = await getAdminDb();
 
     const snap = await db.collection('shared_passages').get();
     const batch = db.batch();
@@ -44,4 +47,3 @@ export async function POST() {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-

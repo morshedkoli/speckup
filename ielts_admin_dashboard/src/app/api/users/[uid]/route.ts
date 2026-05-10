@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { requireAdmin } from '@/lib/admin-guard';
 
 async function tryGetAdminDb() {
   try {
-    return getAdminDb();
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    return await getAdminDb();
   } catch (err: any) {
     console.error('Failed to init admin:', err);
     return null;
@@ -12,9 +13,12 @@ async function tryGetAdminDb() {
 
 // GET /api/users/[uid]  →  user profile + reading + writing history
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ uid: string }> }
 ) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   const { uid } = await params;
   const db = await tryGetAdminDb();
   if (!db) return NextResponse.json({ error: 'DB unavailable' }, { status: 503 });
@@ -28,7 +32,7 @@ export async function GET(
 
     const userData = userSnap.exists ? { uid, ...userSnap.data() } : { uid };
 
-    const readingHistory = historySnap.docs.map((d) => {
+    const readingHistory = historySnap.docs.map((d: any) => {
       const data = d.data();
       return {
         id: d.id,
@@ -41,7 +45,7 @@ export async function GET(
       };
     });
 
-    const writingHistory = writingSnap.docs.map((d) => {
+    const writingHistory = writingSnap.docs.map((d: any) => {
       const data = d.data();
       return {
         id: d.id,

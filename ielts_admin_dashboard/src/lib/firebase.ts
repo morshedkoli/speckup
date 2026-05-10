@@ -11,6 +11,22 @@ const firebaseConfig = {
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
+
+// Lazy getter — avoids calling getFirestore() at module-load time which crashes
+// during Next.js static pre-rendering ("Service firestore is not available").
+let _db: ReturnType<typeof getFirestore> | null = null;
+function getDb() {
+  if (!_db) _db = getFirestore(app);
+  return _db;
+}
+
+// Keep `db` as a property so existing imports continue to work.
+// It resolves lazily on first access.
+const db = new Proxy({} as ReturnType<typeof getFirestore>, {
+  get(_target, prop) {
+    return (getDb() as any)[prop];
+  },
+});
 
 export { app, db };
+

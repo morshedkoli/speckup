@@ -7,6 +7,9 @@ import '../../../core/presentation/widgets/base_scaffold.dart';
 import '../../../core/presentation/widgets/glass_button.dart';
 import '../../../core/presentation/widgets/glass_container.dart';
 import '../../../core/router/route_names.dart';
+import '../../../core/network/connectivity_service.dart';
+import '../../../core/sync/sync_queue.dart';
+import '../../../services/firebase/firebase_providers.dart';
 import '../providers/writing_session_provider.dart';
 
 class WritingEditorPage extends ConsumerStatefulWidget {
@@ -48,6 +51,7 @@ class _WritingEditorPageState extends ConsumerState<WritingEditorPage> {
     final session = ref.read(writingSessionControllerProvider);
     final task = session.task;
     if (task == null) return;
+    final userResponse = session.userResponse;
 
     if (session.wordCount < task.minWords) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -66,6 +70,33 @@ class _WritingEditorPageState extends ConsumerState<WritingEditorPage> {
     });
 
     try {
+      final isConnected =
+          await ref.read(connectivityServiceProvider).isConnected;
+      if (!isConnected) {
+        final user = ref.read(currentUserProvider);
+        final pendingPath = user == null
+            ? 'offline_writing/guest_${task.id}'
+            : 'users/${user.uid}/pending_writing/${task.id}';
+        await ref.read(syncManagerProvider).enqueueWrite(
+          path: pendingPath,
+          data: {
+            'taskId': task.id,
+            'taskType': task.taskType.name,
+            'prompt': task.prompt,
+            'userResponse': userResponse,
+            'wordCount': session.wordCount,
+            'status': 'pending_evaluation',
+          },
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saved offline. Submit for evaluation when online.'),
+          ),
+        );
+        return;
+      }
+
       await ref.read(writingSessionControllerProvider.notifier).submitWriting();
       if (!mounted) return;
       context.pushReplacementNamed(
@@ -209,7 +240,7 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.5),
+        color: theme.colorScheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(

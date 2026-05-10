@@ -1,5 +1,5 @@
-name: ielts_reading_app
-description: SpeakUp Reading — IELTS Reading Trainer with AI-generated passages and Bangla word meanings.
+name: speakup_ai
+description: SpeakUp AI — IELTS preparation with AI-generated reading, writing, vocabulary, and diagnostic tests.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -49,6 +49,7 @@ dependencies:
   logger: ^2.4.0
   google_fonts: ^8.0.2
   lucide_icons: ^0.257.0
+  shadcn_flutter: ^0.0.52
 
 dev_dependencies:
   flutter_test:

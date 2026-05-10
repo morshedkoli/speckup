@@ -12,6 +12,7 @@ class RouteNames {
   static const questions = 'questions';
   static const result = 'result';
   static const vocabulary = 'vocabulary';
+  static const synonyms = 'synonyms';
   static const progress = 'progress';
   static const settings = 'settings';
   static const library = 'library';
@@ -20,6 +21,8 @@ class RouteNames {
   static const writingEditor = 'writing_editor';
   static const writingResult = 'writing_result';
   static const writingProgress = 'writing_progress';
+  static const freeWriteEssay = 'free_write_essay';
+  static const freeWriteResult = 'free_write_result';
 }
 
 class RoutePaths {
@@ -36,6 +39,7 @@ class RoutePaths {
   static const questions = '/questions/:type';
   static const result = '/result/:type';
   static const vocabulary = '/vocabulary';
+  static const synonyms = '/synonyms';
   static const progress = '/progress';
   static const settings = '/settings';
   static const library = '/library';
@@ -44,4 +48,6 @@ class RoutePaths {
   static const writingEditor = '/writing/editor/:type';
   static const writingResult = '/writing/result/:type';
   static const writingProgress = '/writing/progress';
+  static const freeWriteEssay = '/writing/free-write';
+  static const freeWriteResult = '/writing/free-write/result';
 }

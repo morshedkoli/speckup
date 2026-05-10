@@ -17,7 +17,7 @@ class ShimmerBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: AppColors.bg3,          // dark navy surface
+      baseColor: AppColors.bg3, // dark navy surface
       highlightColor: const Color(0xFF2A3655), // slightly lighter
       child: Container(
         width: width,

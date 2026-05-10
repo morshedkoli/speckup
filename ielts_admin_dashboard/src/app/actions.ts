@@ -2,10 +2,13 @@
 
 import { QuestionType, WritingChartType, WritingTaskType } from '@/types';
 import { AIService } from '@/lib/openrouter';
-import { FullAIConfig } from '@/lib/ai-config';
+import { getAIConfigFromDb } from '@/lib/get-ai-config';
 
-export async function generatePassageAction(type: string, config: FullAIConfig) {
+// ─── Reading ──────────────────────────────────────────────────────────────────
+
+export async function generatePassageAction(type: string) {
   try {
+    const config = await getAIConfigFromDb();
     const hasGoogle = config.googleAI.enabled && config.googleAI.apiKey;
     const hasOpenRouter = config.openRouter.enabled && config.openRouter.apiKey;
     if (!hasGoogle && !hasOpenRouter) {
@@ -19,8 +22,11 @@ export async function generatePassageAction(type: string, config: FullAIConfig) 
   }
 }
 
-export async function generateWritingTaskAction(type: string, config: FullAIConfig, chartType?: string) {
+// ─── Writing ──────────────────────────────────────────────────────────────────
+
+export async function generateWritingTaskAction(type: string, chartType?: string) {
   try {
+    const config = await getAIConfigFromDb();
     const hasGoogle = config.googleAI.enabled && config.googleAI.apiKey;
     const hasOpenRouter = config.openRouter.enabled && config.openRouter.apiKey;
     if (!hasGoogle && !hasOpenRouter) {
@@ -38,8 +44,11 @@ export async function generateWritingTaskAction(type: string, config: FullAIConf
   }
 }
 
-export async function generateDiagnosticPassageAction(config: FullAIConfig) {
+// ─── Diagnostic ───────────────────────────────────────────────────────────────
+
+export async function generateDiagnosticPassageAction() {
   try {
+    const config = await getAIConfigFromDb();
     const hasGoogle = config.googleAI.enabled && config.googleAI.apiKey;
     const hasOpenRouter = config.openRouter.enabled && config.openRouter.apiKey;
     if (!hasGoogle && !hasOpenRouter) {
@@ -53,8 +62,11 @@ export async function generateDiagnosticPassageAction(config: FullAIConfig) {
   }
 }
 
-export async function generateVocabularyWordsAction(config: FullAIConfig, existingWords: string[] = []) {
+// ─── Vocabulary ───────────────────────────────────────────────────────────────
+
+export async function generateVocabularyWordsAction(existingWords: string[] = []) {
   try {
+    const config = await getAIConfigFromDb();
     const hasGoogle = config.googleAI.enabled && config.googleAI.apiKey;
     const hasOpenRouter = config.openRouter.enabled && config.openRouter.apiKey;
     if (!hasGoogle && !hasOpenRouter) {
@@ -68,6 +80,15 @@ export async function generateVocabularyWordsAction(config: FullAIConfig, existi
   }
 }
 
+// ─── OpenRouter model list ────────────────────────────────────────────────────
+// ⚠️ DEPRECATED: Do NOT call this from the UI on Firebase's free (Spark) plan.
+// Firebase Spark blocks outbound requests from Cloud Run/Functions to external
+// non-Google URLs. This server action's fetch to openrouter.ai will fail silently.
+//
+// The ai/page.tsx now makes this call directly from the client browser instead,
+// where no such network restriction applies.
+//
+// This function is kept here for reference / paid-plan use only.
 export async function fetchFreeModelsAction(apiKey: string) {
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models', {

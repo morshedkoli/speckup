@@ -1,411 +1,539 @@
+import 'dart:math' show pi;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-
-import '../../../core/presentation/widgets/base_scaffold.dart';
-import '../../../core/presentation/widgets/glass_container.dart';
-import '../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
+import '../../../core/presentation/widgets/shimmer_box.dart';
 import '../../../services/firebase/firebase_providers.dart';
 import '../data/vocabulary_repository.dart';
+import '../domain/quiz_question.dart';
 import '../domain/saved_word.dart';
+import 'quiz_session_page.dart';
 
 class VocabularyPage extends ConsumerWidget {
   const VocabularyPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return DefaultTabController(
-      length: 2,
-      child: BaseScaffold(
-        appBar: AppBar(
-          title: const Text('Vocabulary'),
-          bottom: TabBar(
-            indicatorSize: TabBarIndicatorSize.tab,
-            indicator: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            tabs: const [
-              Tab(text: 'Learning'),
-              Tab(text: 'Learned'),
-            ],
-          ),
+    final wordsAsync = ref.watch(learningWordsProvider);
+    final learnedAsync = ref.watch(learnedWordsProvider);
+    final synonymAsync = ref.watch(synonymQuizWordsProvider);
+
+    return Scaffold(
+      appBar: CustomAppBar(
+        title: 'Learn Hub',
+        subtitle: 'Vocabulary & Quizzes',
+        leading: IconButton(
+          icon: const Icon(LucideIcons.arrowLeft),
+          onPressed: () => context.pop(),
         ),
-        body: const TabBarView(
-          children: [
-            _LearningWordsView(),
-            _LearnedWordsView(),
-          ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        children: [
+          // ── Stats row ─────────────────────────────────────────────────────
+          learnedAsync.when(
+            loading: () => const _StatsRowShimmer(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (learned) => wordsAsync.when(
+              loading: () => const _StatsRowShimmer(),
+              error: (_, __) => const SizedBox.shrink(),
+              data: (learning) => _StatsRow(
+                learning: learning.length,
+                learned: learned.length,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+          _SectionLabel(label: 'Study Modes'),
+          const SizedBox(height: 12),
+
+          // ── Flashcard Mode ────────────────────────────────────────────────
+          wordsAsync.when(
+            loading: () => const _ModeCardShimmer(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (words) => _ModeCard(
+              icon: LucideIcons.bookOpen,
+              color: AppColors.reading,
+              title: 'Flashcard Review',
+              subtitle: 'Swipe through ${words.length} words to study meanings, '
+                  'examples and Bangla translations.',
+              ctaLabel: words.isEmpty ? 'No words yet' : 'Start Review',
+              enabled: words.isNotEmpty,
+              onTap: () => _startFlashcard(context, ref, words),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── Vocab Quiz ────────────────────────────────────────────────────
+          wordsAsync.when(
+            loading: () => const _ModeCardShimmer(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (words) {
+              final canQuiz = words.length >= 2;
+              return _ModeCard(
+                icon: LucideIcons.brain,
+                color: AppColors.vocabulary,
+                title: 'Vocabulary Quiz',
+                subtitle: canQuiz
+                    ? 'Test your knowledge with meanings, fill-the-blank and '
+                        'translation questions.'
+                    : 'Need at least 2 words with meanings to start.',
+                ctaLabel: canQuiz ? 'Start Quiz' : 'Not enough words',
+                enabled: canQuiz,
+                onTap: () => _startVocabQuiz(context, words),
+              );
+            },
+          ),
+
+          const SizedBox(height: 12),
+
+          // ── Synonym & Antonym Quiz ────────────────────────────────────────
+          synonymAsync.when(
+            loading: () => const _ModeCardShimmer(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (words) {
+              final canQuiz = words.length >= 2;
+              return _ModeCard(
+                icon: LucideIcons.arrowLeftRight,
+                color: AppColors.synonyms,
+                title: 'Synonym & Antonym Quiz',
+                subtitle: canQuiz
+                    ? 'Match synonyms and identify opposites across '
+                        '${words.length} enriched words.'
+                    : 'No synonym/antonym data yet. Generate vocabulary first.',
+                ctaLabel: canQuiz ? 'Start Quiz' : 'No data yet',
+                enabled: canQuiz,
+                onTap: () => _startSynonymQuiz(context, words),
+              );
+            },
+          ),
+
+          const SizedBox(height: 28),
+          _SectionLabel(label: 'Learned Words'),
+          const SizedBox(height: 12),
+
+          // ── Learned words list ────────────────────────────────────────────
+          learnedAsync.when(
+            loading: () => Column(
+              children: List.generate(
+                4,
+                (_) => const Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: ShimmerBox(width: double.infinity, height: 68, radius: 12),
+                ),
+              ),
+            ),
+            error: (e, _) => _EmptyState(
+              icon: LucideIcons.cloudOff,
+              title: 'Could not load',
+              subtitle: e.toString(),
+              onRetry: () => ref.invalidate(learnedWordsProvider),
+            ),
+            data: (words) {
+              if (words.isEmpty) {
+                return const _EmptyState(
+                  icon: LucideIcons.bookMarked,
+                  title: 'No learned words yet',
+                  subtitle:
+                      'Complete flashcard review and mark words as learned.',
+                );
+              }
+              return Column(
+                children: words
+                    .map((w) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _LearnedWordTile(word: w),
+                        ))
+                    .toList(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startFlashcard(
+      BuildContext context, WidgetRef ref, List<VocabularyWord> words) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _FlashcardReviewPage(words: words, ref: ref),
+      ),
+    );
+  }
+
+  void _startVocabQuiz(BuildContext context, List<VocabularyWord> words) {
+    final questions = QuizQuestion.buildSession(words, targetCount: 10);
+    if (questions.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => QuizSessionPage(
+          questions: questions,
+          title: 'Vocabulary Quiz',
+        ),
+      ),
+    );
+  }
+
+  void _startSynonymQuiz(BuildContext context, List<VocabularyWord> words) {
+    final questions = QuizQuestion.buildSession(
+      words,
+      targetCount: 10,
+    );
+    if (questions.isEmpty) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => QuizSessionPage(
+          questions: questions,
+          title: 'Synonym & Antonym Quiz',
         ),
       ),
     );
   }
 }
 
-// ─── Learning Words View ──────────────────────────────────────────────────────
+// ─── Flashcard Review Page (internal) ────────────────────────────────────────
 
-class _LearningWordsView extends ConsumerStatefulWidget {
-  const _LearningWordsView();
+class _FlashcardReviewPage extends ConsumerStatefulWidget {
+  final List<VocabularyWord> words;
+  final WidgetRef ref;
+
+  const _FlashcardReviewPage({required this.words, required this.ref});
 
   @override
-  ConsumerState<_LearningWordsView> createState() => _LearningWordsViewState();
+  ConsumerState<_FlashcardReviewPage> createState() =>
+      _FlashcardReviewPageState();
 }
 
-class _LearningWordsViewState extends ConsumerState<_LearningWordsView> {
+class _FlashcardReviewPageState extends ConsumerState<_FlashcardReviewPage> {
   int _index = 0;
-  final Set<String> _completedInBatch = <String>{};
+  bool _flipped = false;
 
-  Future<void> _markLearned(VocabularyWord word, int visibleCount) async {
+  VocabularyWord get _current => widget.words[_index];
+  int get _total => widget.words.length;
+
+  void _flip() => setState(() => _flipped = !_flipped);
+
+  Future<void> _markLearned() async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
-
-    await ref.read(vocabularyRepositoryProvider).markLearned(user.uid, word);
+    await ref.read(vocabularyRepositoryProvider).markLearned(user.uid, _current);
     ref.invalidate(learnedWordsProvider);
+    ref.invalidate(learningWordsProvider);
+    _next();
+  }
 
-    if (!mounted) return;
-    if (visibleCount <= 1) {
-      setState(() {
-        _index = 0;
-        _completedInBatch.clear();
-      });
-      ref.invalidate(learningWordsProvider);
+  void _next() {
+    if (_index >= _total - 1) {
+      if (mounted) Navigator.of(context).pop();
       return;
     }
-
     setState(() {
-      _completedInBatch.add(word.id);
-      _index = _index.clamp(0, visibleCount - 2);
+      _index++;
+      _flipped = false;
     });
   }
 
-  void _goNext(int total) {
-    if (_index < total - 1) {
-      setState(() => _index += 1);
+  void _skip() {
+    if (_index >= _total - 1) {
+      if (mounted) Navigator.of(context).pop();
+      return;
     }
+    setState(() {
+      _index++;
+      _flipped = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final wordsAsync = ref.watch(learningWordsProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final progress = (_index + 1) / _total;
 
-    return wordsAsync.when(
-      loading: () => const Padding(
-        padding: EdgeInsets.all(20),
+    return Scaffold(
+      body: SafeArea(
         child: Column(
           children: [
-            SizedBox(height: 50),
-            Expanded(
-              child: ShimmerBox(
-                width: double.infinity,
-                height: double.infinity,
-                radius: 24,
-              ),
-            ),
-            SizedBox(height: 24),
-            ShimmerBox(width: double.infinity, height: 48, radius: 12),
-          ],
-        ),
-      ),
-      error: (error, _) => _StateMessage(
-        icon: LucideIcons.cloudOff,
-        title: 'Could not load words',
-        message: error.toString(),
-        actionLabel: 'Retry',
-        onAction: () => ref.invalidate(learningWordsProvider),
-      ),
-      data: (words) {
-        final visibleWords = words
-            .where((word) => !_completedInBatch.contains(word.id))
-            .toList();
-
-        if (visibleWords.isEmpty) {
-          return const _StateMessage(
-            icon: LucideIcons.badgeCheck,
-            title: 'All Caught Up!',
-            message: 'All vocabulary is in your learned tab. Great work!',
-          );
-        }
-
-        final safeIndex = _index.clamp(0, visibleWords.length - 1);
-        final activeWord = visibleWords[safeIndex];
-        final remaining = visibleWords.length - safeIndex;
-
-        return Column(
-          children: [
+            // Top bar
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Column(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Word ${safeIndex + 1} of ${visibleWords.length}',
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '$remaining left in this batch',
-                        style:
-                            Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  color: AppColors.textSecondary,
-                                ),
-                      ),
-                    ],
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(LucideIcons.x),
+                    style: IconButton.styleFrom(
+                      backgroundColor:
+                          isDark ? AppColors.zinc800 : AppColors.zinc100,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: ((safeIndex + 1) / visibleWords.length)
-                          .clamp(0.0, 1.0),
-                      backgroundColor: AppColors.bg3,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppColors.primary,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 10,
+                        backgroundColor:
+                            isDark ? AppColors.zinc800 : AppColors.zinc200,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                            AppColors.reading),
                       ),
-                      minHeight: 4,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${_index + 1}/$_total',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
               ),
             ),
+
+            // Card
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
-                child: _WordDeck(
-                  words: visibleWords,
-                  activeIndex: safeIndex,
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                child: GestureDetector(
+                  onTap: _flip,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (child, animation) {
+                      final rotate = Tween(begin: pi, end: 0.0)
+                          .animate(CurvedAnimation(
+                              parent: animation, curve: Curves.easeOut));
+                      return AnimatedBuilder(
+                        animation: rotate,
+                        child: child,
+                        builder: (_, child) =>
+                            Transform(
+                              transform: Matrix4.rotationY(rotate.value),
+                              alignment: Alignment.center,
+                              child: child,
+                            ),
+                      );
+                    },
+                    child: _flipped
+                        ? _CardBack(key: const ValueKey('back'), word: _current)
+                        : _CardFront(
+                            key: const ValueKey('front'), word: _current),
+                  ),
                 ),
               ),
             ),
+
+            // Hint
+            if (!_flipped)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Tap card to reveal meaning',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textMuted(context),
+                  ),
+                ),
+              ),
+
+            // Buttons
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
               child: Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: safeIndex < visibleWords.length - 1
-                          ? () => _goNext(visibleWords.length)
-                          : null,
-                      icon: const Icon(LucideIcons.arrowRight, size: 16),
-                      label: const Text('Later'),
+                      onPressed: _skip,
+                      icon: const Icon(LucideIcons.skipForward, size: 16),
+                      label: const Text('Skip'),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: () =>
-                          _markLearned(activeWord, visibleWords.length),
+                      onPressed: _markLearned,
                       icon: const Icon(LucideIcons.check, size: 16),
-                      label: Text(
-                        safeIndex < visibleWords.length - 1
-                            ? 'Learned'
-                            : 'Finish Word',
-                      ),
+                      label: const Text('Got it! ✓'),
                     ),
                   ),
                 ],
               ),
             ),
           ],
-        );
-      },
-    );
-  }
-}
-
-// ─── Word Deck ────────────────────────────────────────────────────────────────
-
-class _WordDeck extends StatelessWidget {
-  final List<VocabularyWord> words;
-  final int activeIndex;
-
-  const _WordDeck({
-    required this.words,
-    required this.activeIndex,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleWords = words.skip(activeIndex).take(5).toList();
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        for (var i = visibleWords.length - 1; i >= 1; i--)
-          Positioned.fill(
-            top: i * 12.0,
-            left: i * 8.0,
-            right: i * 8.0,
-            bottom: -i * 6.0,
-            child: _DeckBackCard(
-              word: visibleWords[i],
-              position: i,
-            ),
-          ),
-        Positioned.fill(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 260),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) {
-              final offset = Tween<Offset>(
-                begin: const Offset(0.08, 0.0),
-                end: Offset.zero,
-              ).animate(animation);
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(position: offset, child: child),
-              );
-            },
-            child: _StudyWordCard(
-              key: ValueKey(visibleWords.first.id),
-              word: visibleWords.first,
-              cardNumber: activeIndex + 1,
-              batchTotal: words.length,
-            ),
-          ),
         ),
-      ],
+      ),
     );
   }
 }
 
-class _DeckBackCard extends StatelessWidget {
-  final VocabularyWord word;
-  final int position;
 
-  const _DeckBackCard({
-    required this.word,
-    required this.position,
-  });
+
+class _CardFront extends StatelessWidget {
+  final VocabularyWord word;
+  const _CardFront({super.key, required this.word});
 
   @override
   Widget build(BuildContext context) {
-    final opacity = (0.22 - (position * 0.025)).clamp(0.10, 0.20);
+    final theme = Theme.of(context);
 
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: opacity),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
-        ),
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(20),
       ),
-      alignment: Alignment.topCenter,
-      padding: const EdgeInsets.only(top: 14),
-      child: Text(
-        word.word,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.35),
-              fontWeight: FontWeight.w700,
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                word.level,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
             ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 20),
+            Text(
+              word.word,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 40,
+                letterSpacing: -1,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (word.banglaMeaning.isNotEmpty)
+              Text(
+                word.banglaMeaning,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 18,
+                ),
+              ),
+            const Spacer(),
+            Row(
+              children: [
+                Icon(LucideIcons.refreshCw,
+                    size: 16, color: Colors.white.withValues(alpha: 0.6)),
+                const SizedBox(width: 6),
+                Text(
+                  'Tap to flip',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _StudyWordCard extends StatelessWidget {
+class _CardBack extends StatelessWidget {
   final VocabularyWord word;
-  final int cardNumber;
-  final int batchTotal;
-
-  const _StudyWordCard({
-    super.key,
-    required this.word,
-    required this.cardNumber,
-    required this.batchTotal,
-  });
+  const _CardBack({super.key, required this.word});
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
-      enableBlur: false,
-      borderRadius: BorderRadius.circular(24),
-      borderColor: AppColors.primary.withValues(alpha: 0.3),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.zinc900 : AppColors.zinc50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? AppColors.zinc700 : AppColors.zinc300,
+        ),
+      ),
       child: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 420),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  _LevelBadge(level: word.level, emphasized: true),
-                  const Spacer(),
-                  Text(
-                    '$cardNumber/$batchTotal',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: AppColors.textMuted,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ],
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              word.word,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(height: 20),
-              Text(
-                word.word,
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w900,
-                    ),
-              ),
-              const SizedBox(height: 24),
-              _MeaningBlock(
-                label: 'English Meaning',
-                value: word.englishMeaning,
-                icon: LucideIcons.globe,
-                iconColor: AppColors.sky,
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 14),
-                child: Divider(height: 1, color: AppColors.borderDark),
-              ),
-              _MeaningBlock(
-                label: 'Bangla Meaning',
-                value: word.banglaMeaning,
-                icon: LucideIcons.messageCircle,
-                iconColor: AppColors.accent,
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 14),
-                child: Divider(height: 1, color: AppColors.borderDark),
-              ),
-              _MeaningBlock(
+            ),
+            const SizedBox(height: 20),
+            _BackSection(
+              icon: LucideIcons.globe,
+              label: 'English Meaning',
+              value: word.englishMeaning,
+              color: AppColors.reading,
+            ),
+            if (word.exampleSentence.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _BackSection(
+                icon: LucideIcons.quote,
                 label: 'Example',
                 value: word.exampleSentence,
-                icon: LucideIcons.quote,
-                iconColor: AppColors.violet,
+                color: AppColors.vocabulary,
                 italic: true,
               ),
             ],
-          ),
+            if (word.synonyms.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _TagRow(
+                label: 'Synonyms',
+                tags: word.synonyms,
+                color: AppColors.success,
+              ),
+            ],
+            if (word.antonyms.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _TagRow(
+                label: 'Antonyms',
+                tags: word.antonyms,
+                color: AppColors.destructive,
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
 }
 
-// ─── Meaning Block ────────────────────────────────────────────────────────────
-
-class _MeaningBlock extends StatelessWidget {
+class _BackSection extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
-  final IconData icon;
-  final Color iconColor;
+  final Color color;
   final bool italic;
 
-  const _MeaningBlock({
+  const _BackSection({
+    required this.icon,
     required this.label,
     required this.value,
-    required this.icon,
-    required this.iconColor,
+    required this.color,
     this.italic = false,
   });
 
@@ -416,15 +544,16 @@ class _MeaningBlock extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, size: 14, color: iconColor),
+            Icon(icon, size: 14, color: color),
             const SizedBox(width: 6),
             Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: iconColor,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                  ),
+              label.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: color,
+                letterSpacing: 0.8,
+              ),
             ),
           ],
         ),
@@ -432,9 +561,8 @@ class _MeaningBlock extends StatelessWidget {
         Text(
           value,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                height: 1.55,
                 fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-                color: italic ? AppColors.textSecondary : AppColors.textPrimary,
+                height: 1.5,
               ),
         ),
       ],
@@ -442,128 +570,81 @@ class _MeaningBlock extends StatelessWidget {
   }
 }
 
-// ─── Level Badge ──────────────────────────────────────────────────────────────
+class _TagRow extends StatelessWidget {
+  final String label;
+  final List<String> tags;
+  final Color color;
 
-class _LevelBadge extends StatelessWidget {
-  final String level;
-  final bool emphasized;
-
-  const _LevelBadge({
-    required this.level,
-    this.emphasized = false,
-  });
+  const _TagRow(
+      {required this.label, required this.tags, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: emphasized
-            ? AppColors.primary.withValues(alpha: 0.14)
-            : Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: emphasized
-              ? AppColors.primary.withValues(alpha: 0.28)
-              : Colors.white.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Text(
-        level,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: emphasized ? AppColors.primary : Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-      ),
-    );
-  }
-}
-
-// ─── Learned Words View ───────────────────────────────────────────────────────
-
-class _LearnedWordsView extends ConsumerWidget {
-  const _LearnedWordsView();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final wordsAsync = ref.watch(learnedWordsProvider);
-
-    return wordsAsync.when(
-      loading: () => ListView.separated(
-        padding: const EdgeInsets.all(20),
-        itemCount: 8,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, index) => const GlassContainer(
-          padding: EdgeInsets.all(14),
-          child: Row(
-            children: [
-              ShimmerBox(width: 32, height: 32, radius: 8),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ShimmerBox(width: 100, height: 16),
-                    SizedBox(height: 6),
-                    ShimmerBox(width: double.infinity, height: 12),
-                  ],
-                ),
-              ),
-              SizedBox(width: 12),
-              ShimmerBox(width: 30, height: 20, radius: 8),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: color,
+            letterSpacing: 0.8,
           ),
         ),
-      ),
-      error: (error, _) => _StateMessage(
-        icon: LucideIcons.cloudOff,
-        title: 'Could not load learned words',
-        message: error.toString(),
-        actionLabel: 'Retry',
-        onAction: () => ref.invalidate(learnedWordsProvider),
-      ),
-      data: (words) {
-        if (words.isEmpty) {
-          return const _StateMessage(
-            icon: LucideIcons.bookMarked,
-            title: 'No Learned Words Yet',
-            message: 'Mark words as learned to keep them here.',
-          );
-        }
-
-        return ListView.separated(
-          padding: const EdgeInsets.all(20),
-          itemCount: words.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) => _CompactWordCard(word: words[index]),
-        );
-      },
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: tags
+              .map(
+                (t) => Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: color.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    t,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ],
     );
   }
 }
 
-class _CompactWordCard extends StatelessWidget {
-  final VocabularyWord word;
+// ─── Learned Word Tile ────────────────────────────────────────────────────────
 
-  const _CompactWordCard({required this.word});
+class _LearnedWordTile extends StatelessWidget {
+  final VocabularyWord word;
+  const _LearnedWordTile({required this.word});
 
   @override
   Widget build(BuildContext context) {
-    return GlassContainer(
+    final theme = Theme.of(context);
+    return AppCard(
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.success.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
-              LucideIcons.checkCircle,
-              size: 16,
-              color: AppColors.accent,
-            ),
+            child: const Icon(LucideIcons.checkCircle2,
+                size: 18, color: AppColors.success),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -572,35 +653,62 @@ class _CompactWordCard extends StatelessWidget {
               children: [
                 Text(
                   word.word,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   word.englishMeaning,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textMuted(context),
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (word.synonyms.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 4,
+                    children: word.synonyms
+                        .take(3)
+                        .map(
+                          (s) => Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.success.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              s,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.success,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.12),
+              color: AppColors.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               word.level,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
             ),
           ),
         ],
@@ -609,66 +717,252 @@ class _CompactWordCard extends StatelessWidget {
   }
 }
 
-// ─── State Message ────────────────────────────────────────────────────────────
+// ─── Shared helpers ───────────────────────────────────────────────────────────
 
-class _StateMessage extends StatelessWidget {
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label.toUpperCase(),
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppColors.textMuted(context),
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+          ),
+    );
+  }
+}
+
+class _StatsRow extends StatelessWidget {
+  final int learning;
+  final int learned;
+
+  const _StatsRow({required this.learning, required this.learned});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _StatCard(
+          icon: LucideIcons.bookOpen,
+          label: 'To Learn',
+          value: '$learning',
+          color: AppColors.reading,
+        ),
+        const SizedBox(width: 12),
+        _StatCard(
+          icon: LucideIcons.award,
+          label: 'Learned',
+          value: '$learned',
+          color: AppColors.success,
+        ),
+        const SizedBox(width: 12),
+        _StatCard(
+          icon: LucideIcons.library,
+          label: 'Total',
+          value: '${learning + learned}',
+          color: AppColors.vocabulary,
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
   final IconData icon;
-  final String title;
-  final String message;
-  final String? actionLabel;
-  final VoidCallback? onAction;
+  final String label;
+  final String value;
+  final Color color;
 
-  const _StateMessage({
+  const _StatCard({
     required this.icon,
-    required this.title,
-    required this.message,
-    this.actionLabel,
-    this.onAction,
+    required this.label,
+    required this.value,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(36),
+    return Expanded(
+      child: AppCard(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: AppColors.bg3,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 48, color: AppColors.textMuted),
-            ),
-            const SizedBox(height: 20),
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 6),
             Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
+            ),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.textMuted(context),
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final String ctaLabel;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _ModeCard({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.ctaLabel,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textMuted(context),
+                    height: 1.4,
                   ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: enabled ? onTap : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: enabled ? color : null,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    child: Text(ctaLabel),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onRetry;
+
+  const _EmptyState({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 40, color: AppColors.textMuted(context)),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.textMuted(context),
+              ),
               textAlign: TextAlign.center,
             ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: onAction,
-                icon: const Icon(LucideIcons.refreshCw, size: 16),
-                label: Text(actionLabel!),
+            if (onRetry != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(LucideIcons.refreshCw, size: 14),
+                label: const Text('Retry'),
               ),
             ],
           ],
         ),
       ),
     );
+  }
+}
+
+class _StatsRowShimmer extends StatelessWidget {
+  const _StatsRowShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(
+        3,
+        (i) => Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(left: i > 0 ? 12 : 0),
+            child: const ShimmerBox(
+                width: double.infinity, height: 76, radius: 12),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeCardShimmer extends StatelessWidget {
+  const _ModeCardShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ShimmerBox(width: double.infinity, height: 130, radius: 12);
   }
 }

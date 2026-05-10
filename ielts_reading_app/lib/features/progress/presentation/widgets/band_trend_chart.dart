@@ -18,7 +18,7 @@ class BandTrendChart extends StatelessWidget {
         child: Text(
           'Complete at least 2 sessions to see your trend.',
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withOpacity(0.5),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
           ),
           textAlign: TextAlign.center,
         ),
@@ -40,7 +40,7 @@ class BandTrendChart extends StatelessWidget {
           drawVerticalLine: false,
           horizontalInterval: 1,
           getDrawingHorizontalLine: (value) => FlLine(
-            color: theme.colorScheme.onSurface.withOpacity(0.08),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
             strokeWidth: 1,
           ),
         ),
@@ -58,7 +58,7 @@ class BandTrendChart extends StatelessWidget {
                 return Text(
                   value.toInt().toString(),
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.4),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                   ),
                 );
               },
@@ -81,14 +81,16 @@ class BandTrendChart extends StatelessWidget {
                 return Text(
                   '#${index + 1}',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.4),
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                   ),
                 );
               },
             ),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
@@ -115,8 +117,7 @@ class BandTrendChart extends StatelessWidget {
             barWidth: 2.5,
             dotData: FlDotData(
               show: true,
-              getDotPainter: (spot, percent, bar, index) =>
-                  FlDotCirclePainter(
+              getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
                 radius: 3.5,
                 color: color,
                 strokeWidth: 2,
@@ -129,8 +130,8 @@ class BandTrendChart extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  color.withOpacity(0.25),
-                  color.withOpacity(0.0),
+                  color.withValues(alpha: 0.25),
+                  color.withValues(alpha: 0),
                 ],
               ),
             ),

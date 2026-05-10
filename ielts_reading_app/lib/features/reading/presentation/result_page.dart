@@ -23,9 +23,10 @@ class PassageResultPage extends ConsumerWidget {
       orElse: () => QuestionType.multipleChoice,
     );
     final sessionState = ref.watch(practiceSessionProvider(questionType));
-    
+
     if (sessionState.passage == null) {
-       return const BaseScaffold(body: Center(child: CircularProgressIndicator()));
+      return const BaseScaffold(
+          body: Center(child: CircularProgressIndicator()));
     }
 
     final passage = sessionState.passage!;
@@ -53,7 +54,7 @@ class PassageResultPage extends ConsumerWidget {
                   Text(
                     'Practice Completed',
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -74,14 +75,17 @@ class PassageResultPage extends ConsumerWidget {
                         child: CircularProgressIndicator(
                           value: score,
                           strokeWidth: 12,
-                          backgroundColor: theme.colorScheme.surface.withOpacity(0.5),
-                          color: score >= 0.7 ? theme.colorScheme.primary : Colors.amber,
+                          backgroundColor:
+                              theme.colorScheme.surface.withValues(alpha: 0.5),
+                          color: score >= 0.7
+                              ? theme.colorScheme.primary
+                              : Colors.amber,
                         ),
                       ),
                       Text(
                         '$percentInt%',
                         style: theme.textTheme.displaySmall?.copyWith(
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ],
@@ -90,12 +94,13 @@ class PassageResultPage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Explanation List
             ...questions.map((q) {
               final userAnswer = sessionState.userAnswers[q.id] ?? '';
-              final isCorrect = userAnswer.toLowerCase() == q.correctAnswer.toLowerCase();
-              
+              final isCorrect =
+                  userAnswer.toLowerCase() == q.correctAnswer.toLowerCase();
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16.0),
                 child: GlassContainer(
@@ -107,8 +112,12 @@ class PassageResultPage extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
-                            isCorrect ? LucideIcons.checkCircle : LucideIcons.xCircle,
-                            color: isCorrect ? theme.colorScheme.primary : theme.colorScheme.error,
+                            isCorrect
+                                ? LucideIcons.checkCircle
+                                : LucideIcons.xCircle,
+                            color: isCorrect
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.error,
                             size: 24,
                           ),
                           const SizedBox(width: 12),
@@ -127,12 +136,18 @@ class PassageResultPage extends ConsumerWidget {
                         text: TextSpan(
                           style: theme.textTheme.bodyMedium,
                           children: [
-                            TextSpan(text: 'Your Answer: ', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                            TextSpan(
+                                text: 'Your Answer: ',
+                                style: TextStyle(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.6))),
                             TextSpan(
                               text: userAnswer.isEmpty ? '(Blank)' : userAnswer,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: isCorrect ? theme.colorScheme.primary : theme.colorScheme.error,
+                                color: isCorrect
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.error,
                               ),
                             ),
                           ],
@@ -144,7 +159,11 @@ class PassageResultPage extends ConsumerWidget {
                           text: TextSpan(
                             style: theme.textTheme.bodyMedium,
                             children: [
-                              TextSpan(text: 'Correct Answer: ', style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6))),
+                              TextSpan(
+                                  text: 'Correct Answer: ',
+                                  style: TextStyle(
+                                      color: theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.6))),
                               TextSpan(
                                 text: q.correctAnswer,
                                 style: TextStyle(
@@ -159,19 +178,21 @@ class PassageResultPage extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.tertiary.withOpacity(0.1),
+                            color: theme.colorScheme.tertiary.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(LucideIcons.info, size: 18, color: theme.colorScheme.tertiary),
+                              Icon(LucideIcons.info,
+                                  size: 18, color: theme.colorScheme.tertiary),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   q.explanation,
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.8),
                                   ),
                                 ),
                               ),

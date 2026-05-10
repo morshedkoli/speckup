@@ -10,9 +10,11 @@ class DictionaryService {
 
     return WordDefinition(
       word: word,
-      englishMeaning: 'Definition lookup is currently disabled in the app. The AI service has been moved to the server.',
+      englishMeaning:
+          'Definition lookup is currently disabled in the app. The AI service has been moved to the server.',
       banglaMeaning: 'এই মুহূর্তে ডিকশনারি বন্ধ আছে।',
-      exampleSentence: 'The $word feature will be connected to the new backend soon.',
+      exampleSentence:
+          'The $word feature will be connected to the new backend soon.',
     );
   }
 }

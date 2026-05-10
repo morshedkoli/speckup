@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { generateWritingTaskAction } from '@/app/actions';
+// generateWritingTaskAction removed — using /api/writing/generate instead (avoids 60 s CF timeout)
 import { WritingTask } from '@/types';
 import { useAIConfig } from '@/hooks/useAIConfig';
+import { adminFetch } from '@/lib/admin-api';
 import {
   Loader2, Plus, PenTool, Trash2, CheckCircle2, XCircle,
   Eye, ChevronUp, Key, ImagePlus, Image as ImageIcon,
@@ -53,7 +54,7 @@ export default function WritingTasksPage() {
   async function loadTasks() {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/writing');
+      const res = await adminFetch('/api/writing');
       const json = await res.json();
       setTasks(json.data ?? []);
     } catch (error) {
@@ -66,7 +67,7 @@ export default function WritingTasksPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this writing task permanently?')) return;
     try {
-      const res = await fetch(`/api/writing?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/writing?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
       setTasks(tasks.filter(t => t.id !== id));
     } catch { alert('Failed to delete'); }
@@ -76,29 +77,39 @@ export default function WritingTasksPage() {
     setIsGenerating(true); setStatusType('idle');
     const selectedChartType = writingType === 'academicReport' ? chartType : undefined;
     setStatusMessage(`Generating ${taskTypeLabel(writingType)}${selectedChartType ? ` (${chartTypeLabel(selectedChartType)})` : ''} task…`);
-    const result = await generateWritingTaskAction(writingType, config, selectedChartType);
-    if (result.success && result.data) {
+    try {
+      // Use API route (maxDuration=300) instead of Server Action (60 s timeout)
+      const genRes = await adminFetch('/api/writing/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskType: writingType, chartType: selectedChartType }),
+      });
+      const genJson = await genRes.json();
+      if (!genRes.ok || !genJson.success) throw new Error(genJson.error ?? 'AI generation failed');
+
       setStatusMessage('Saving to Firestore…');
-      try {
-        const task = result.data as WritingTask;
-        const res = await fetch('/api/writing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.error || 'Save failed');
-        setStatusMessage(`Saved: ${task.title}`); setStatusType('success'); loadTasks();
-      } catch (err: unknown) { setStatusMessage(`Save failed: ${err instanceof Error ? err.message : 'Unexpected error'}`); setStatusType('error'); }
-    } else { setStatusMessage(`Error: ${result.error}`); setStatusType('error'); }
-    setIsGenerating(false);
+      const task = genJson.data as WritingTask;
+      const res = await adminFetch('/api/writing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Save failed');
+      setStatusMessage(`Saved: ${task.title}`); setStatusType('success'); loadTasks();
+    } catch (err: unknown) {
+      setStatusMessage(`Error: ${err instanceof Error ? err.message : 'Unexpected error'}`);
+      setStatusType('error');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleGenerateChart = async (task: WritingTask) => {
     setGeneratingChartFor(task.id);
     setChartError(prev => ({ ...prev, [task.id]: '' }));
     try {
-      const res = await fetch('/api/writing/generate-chart', {
+      const res = await adminFetch('/api/writing/generate-chart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -137,7 +148,7 @@ export default function WritingTasksPage() {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-start gap-3">
           <Key className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
           <div><p className="text-sm font-semibold text-amber-800">API Key Required</p>
-          <p className="text-xs text-amber-600">Configure your OpenRouter key in <Link href="/ai" className="underline font-medium">AI Studio</Link> to enable generation.</p></div>
+          <p className="text-xs text-amber-600">Configure your OpenRouter key in <Link href="/admin/ai" className="underline font-medium">AI Studio</Link> to enable generation.</p></div>
         </div>
       )}
 

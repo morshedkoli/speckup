@@ -118,7 +118,7 @@ class _WritingTaskPageState extends ConsumerState<WritingTaskPage> {
                   Text(
                     task.title,
                     style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -166,7 +166,7 @@ class _WritingTaskPageState extends ConsumerState<WritingTaskPage> {
                             height: 200,
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surface.withOpacity(0.4),
+                              color: theme.colorScheme.surface.withValues(alpha: 0.4),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: const CircularProgressIndicator(),
@@ -176,15 +176,18 @@ class _WritingTaskPageState extends ConsumerState<WritingTaskPage> {
                           height: 160,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.errorContainer.withOpacity(0.3),
+                            color: theme.colorScheme.errorContainer
+                                .withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(LucideIcons.imageOff, size: 32, color: theme.colorScheme.error),
+                              Icon(LucideIcons.imageOff,
+                                  size: 32, color: theme.colorScheme.error),
                               const SizedBox(height: 8),
-                              Text('Failed to load chart image', style: theme.textTheme.bodySmall),
+                              Text('Failed to load chart image',
+                                  style: theme.textTheme.bodySmall),
                             ],
                           ),
                         ),
@@ -195,7 +198,7 @@ class _WritingTaskPageState extends ConsumerState<WritingTaskPage> {
                       Text(
                         task.prompt,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                           height: 1.6,
                         ),
                       ),
@@ -215,7 +218,8 @@ class _WritingTaskPageState extends ConsumerState<WritingTaskPage> {
                           const SizedBox(height: 16),
                           Text(
                             task.prompt,
-                            style: theme.textTheme.bodyLarge?.copyWith(height: 1.7),
+                            style: theme.textTheme.bodyLarge
+                                ?.copyWith(height: 1.7),
                           ),
                         ],
                       ),
@@ -280,10 +284,10 @@ class _WritingTaskPageState extends ConsumerState<WritingTaskPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.5),
+        color: theme.colorScheme.surface.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: theme.colorScheme.outline.withOpacity(0.2),
+          color: theme.colorScheme.outline.withValues(alpha: 0.2),
         ),
       ),
       child: Row(
@@ -292,7 +296,7 @@ class _WritingTaskPageState extends ConsumerState<WritingTaskPage> {
           Icon(
             icon,
             size: 16,
-            color: theme.colorScheme.onSurface.withOpacity(0.7),
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 8),
           Text(

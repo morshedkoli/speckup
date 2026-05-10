@@ -215,6 +215,8 @@ IMPORTANT RULES:
 - Do not use obscure, archaic, offensive, or proper-noun vocabulary.
 - Each Bangla meaning must be natural Bangla, not transliteration only.
 - Each example sentence must be academic and learner-friendly.
+- Include 3 useful synonyms and 2 useful antonyms for each word.
+- Synonyms and antonyms must be single words or short phrases, learner-friendly, and not repeat the main word.
 - The JSON must follow this exact shape:
 {
   "words": [
@@ -223,6 +225,8 @@ IMPORTANT RULES:
       "englishMeaning": "A clear concise English meaning in 1 sentence.",
       "banglaMeaning": "বাংলায় অর্থ ও সংক্ষিপ্ত ব্যাখ্যা।",
       "exampleSentence": "One natural academic example sentence.",
+      "synonyms": ["synonym 1", "synonym 2", "synonym 3"],
+      "antonyms": ["antonym 1", "antonym 2"],
       "level": "Advanced"
     }
   ]
@@ -282,6 +286,14 @@ IMPORTANT RULES:
     "Concrete improvement 2",
     "Concrete improvement 3"
   ],
+  "mistakes": [
+    {
+      "original": "The incorrect text exactly as written by the student",
+      "fix": "The corrected text",
+      "explanation": "Why it was wrong and how the fix improves it"
+    }
+  ],
+  "enhancedVersion": "A full, improved, and enhanced version of the student's writing rewritten at a Band 8 level.",
   "modelAnswer": "A short high-quality sample answer or sample excerpt."
 }
 `;

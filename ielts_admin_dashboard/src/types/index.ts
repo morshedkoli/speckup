@@ -53,6 +53,8 @@ export interface VocabularyWord {
   englishMeaning: string;
   banglaMeaning: string;
   exampleSentence: string;
+  synonyms: string[];
+  antonyms: string[];
   level: string;
 }
 

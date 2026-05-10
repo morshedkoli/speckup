@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 class AppConstants {
   AppConstants._(); // Private constructor
 
@@ -18,5 +16,6 @@ class AppConstants {
   static const String googleAiApiKeyStorageKey = 'GOOGLE_AI_API_KEY';
 
   // Hardcoded OpenRouter API key (fallback — replace with your key)
-  static const String openRouterApiKey = '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';
+  static const String openRouterApiKey =
+      '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';
 }

@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-import '../../../core/presentation/widgets/base_scaffold.dart';
-import '../../../core/presentation/widgets/glass_container.dart';
-import '../../../core/utils/band_calculator.dart';
-import '../data/history_repository.dart';
+import '../../../core/app/app_theme.dart';
+import '../../../shared/widgets/app_card.dart';
+import '../../../shared/widgets/custom_app_bar.dart';
+import '../../../shared/widgets/progress_bar.dart';
 import '../domain/progress_stats.dart';
 import '../providers/progress_providers.dart';
 import 'widgets/band_trend_chart.dart';
@@ -16,218 +16,148 @@ class ProgressPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final statsAsync = ref.watch(progressStatsStreamProvider);
 
-    return BaseScaffold(
-      appBar: AppBar(title: const Text('My Progress')),
+    return Scaffold(
+      appBar: const CustomAppBar(
+        title: 'Progress',
+        subtitle: 'Your IELTS growth map',
+      ),
       body: statsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (stats) => stats.totalSessions == 0
-            ? _EmptyState()
-            : _ProgressContent(stats: stats),
+        error: (error, _) => _ErrorState(
+          message: error.toString(),
+          onRetry: () => ref.invalidate(progressStatsStreamProvider),
+        ),
+        data: (stats) => stats.hasActivity
+            ? _ProgressContent(stats: stats)
+            : const _EmptyState(),
       ),
     );
   }
 }
 
-class _ProgressContent extends ConsumerWidget {
-  final ProgressStats stats;
+class _ProgressContent extends StatelessWidget {
   const _ProgressContent({required this.stats});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final historyAsync = ref.watch(userHistoryStreamProvider);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _BandScoreHero(stats: stats),
-          const SizedBox(height: 20),
-          _StatsRow(stats: stats),
-          const SizedBox(height: 28),
-          Text(
-            'Band Score Trend',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          GlassContainer(
-            padding: const EdgeInsets.fromLTRB(8, 20, 16, 12),
-            child: SizedBox(
-              height: 200,
-              child: BandTrendChart(dataPoints: stats.bandHistory),
-            ),
-          ),
-          const SizedBox(height: 28),
-          Text(
-            'Session History',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          historyAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('Error: $e'),
-            data: (history) => _HistoryList(history: history),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BandScoreHero extends StatelessWidget {
   final ProgressStats stats;
-  const _BandScoreHero({required this.stats});
-
-  Color _bandColor(BuildContext context, double band) {
-    if (band >= 7.5) return Colors.green;
-    if (band >= 6.0) return Colors.blue;
-    if (band >= 4.5) return Colors.orange;
-    return Colors.red;
-  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = _bandColor(context, stats.currentBand);
-    final trend = stats.trend;
-    final trendIcon = trend > 0
-        ? LucideIcons.trendingUp
-        : trend < 0
-            ? LucideIcons.trendingDown
-            : LucideIcons.minus;
-    final trendColor = trend > 0
-        ? Colors.green
-        : trend < 0
-            ? Colors.red
-            : theme.colorScheme.onSurface.withOpacity(0.4);
-
-    return GlassContainer(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-      child: Column(
-        children: [
-          Text(
-            'Current Band Score',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.6),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                stats.currentBand.toStringAsFixed(1),
-                style: theme.textTheme.displayLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                  fontSize: 72,
-                  height: 1,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Icon(trendIcon, color: trendColor, size: 28),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              stats.bandLabel,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          if (stats.bandHistory.length >= 2) ...[
-            const SizedBox(height: 10),
-            Text(
-              trend == 0
-                  ? 'No change from last session'
-                  : '${trend > 0 ? '+' : ''}${trend.toStringAsFixed(1)} from last session',
-              style: theme.textTheme.bodySmall?.copyWith(color: trendColor),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _StatsRow extends StatelessWidget {
-  final ProgressStats stats;
-  const _StatsRow({required this.stats});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       children: [
-        Expanded(
-          child: _StatCard(
-            label: 'Sessions',
-            value: stats.totalSessions.toString(),
-            icon: LucideIcons.bookOpen,
+        _Hero(stats: stats),
+        const SizedBox(height: 16),
+        _DailyGoal(stats: stats),
+        const SizedBox(height: 16),
+        _StatsGrid(stats: stats),
+        const SizedBox(height: 24),
+        const _SectionTitle(title: 'Band Trend'),
+        const SizedBox(height: 12),
+        AppCard(
+          padding: const EdgeInsets.fromLTRB(8, 18, 16, 12),
+          child: SizedBox(
+            height: 220,
+            child: BandTrendChart(dataPoints: stats.bandHistory),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            label: 'Best Band',
-            value: stats.bestBand.toStringAsFixed(1),
-            icon: LucideIcons.trophy,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            label: 'Average',
-            value: stats.averageBand.toStringAsFixed(1),
-            icon: LucideIcons.barChart2,
-          ),
-        ),
+        const SizedBox(height: 24),
+        const _SectionTitle(title: 'Weak Areas'),
+        const SizedBox(height: 12),
+        _WeakAreas(stats: stats),
+        const SizedBox(height: 24),
+        const _SectionTitle(title: 'Achievements'),
+        const SizedBox(height: 12),
+        _BadgeGrid(stats: stats),
+        const SizedBox(height: 24),
+        const _SectionTitle(title: 'Recent Activity'),
+        const SizedBox(height: 12),
+        _ActivityList(stats: stats),
       ],
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  const _StatCard({required this.label, required this.value, required this.icon});
+class _Hero extends StatelessWidget {
+  const _Hero({required this.stats});
+
+  final ProgressStats stats;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return GlassContainer(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+    final trend = stats.trend;
+    final trendLabel = trend == 0
+        ? 'Stable'
+        : '${trend > 0 ? '+' : ''}${trend.toStringAsFixed(1)} band';
+
+    return AppCard(
+      gradient: AppTheme.primaryGradient,
+      padding: const EdgeInsets.all(22),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: theme.colorScheme.primary),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Current Band',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.76),
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              _WhitePill(
+                icon: trend >= 0
+                    ? LucideIcons.trendingUp
+                    : LucideIcons.trendingDown,
+                label: trendLabel,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            stats.currentBand == 0 ? '-' : stats.currentBand.toStringAsFixed(1),
+            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  height: 0.95,
+                ),
+          ),
           const SizedBox(height: 8),
           Text(
-            value,
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            stats.bandLabel,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.5),
-            ),
+          const SizedBox(height: 18),
+          AppProgressBar(
+            value: stats.levelProgress,
+            backgroundColor: Colors.white.withValues(alpha: 0.16),
+            foregroundColor: Colors.white,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(
+                'Level ${stats.level}',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const Spacer(),
+              Text(
+                '${stats.xp} XP',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
           ),
         ],
       ),
@@ -235,87 +165,115 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _HistoryList extends StatelessWidget {
-  final List<Map<String, dynamic>> history;
-  const _HistoryList({required this.history});
+class _DailyGoal extends StatelessWidget {
+  const _DailyGoal({required this.stats});
+
+  final ProgressStats stats;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    return AppCard(
+      child: Row(
+        children: [
+          const Text('🔥', style: TextStyle(fontSize: 28)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${stats.currentStreak} day streak',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                AppProgressBar(value: stats.dailyGoalProgress),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '${stats.dailyGoalCompleted}/${stats.dailyGoalTarget} XP',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-    return ListView.separated(
+class _StatsGrid extends StatelessWidget {
+  const _StatsGrid({required this.stats});
+
+  final ProgressStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      _StatItem('Reading', '${stats.readingSessions}', LucideIcons.bookOpen),
+      _StatItem('Writing', '${stats.writingSessions}', LucideIcons.penTool),
+      _StatItem(
+        'Accuracy',
+        '${(stats.readingAccuracy * 100).round()}%',
+        LucideIcons.target,
+      ),
+      _StatItem('Words', '${stats.vocabularyLearned}', LucideIcons.languages),
+      _StatItem(
+        'Avg writing',
+        stats.writingAverageBand == 0
+            ? '-'
+            : stats.writingAverageBand.toStringAsFixed(1),
+        LucideIcons.edit3,
+      ),
+      _StatItem(
+        'Best band',
+        stats.bestBand.toStringAsFixed(1),
+        LucideIcons.trophy,
+      ),
+    ];
+
+    return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: history.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemCount: items.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.55,
+      ),
       itemBuilder: (context, index) {
-        final data = history[index];
-        final score = (data['score'] as num?)?.toDouble() ?? 0.0;
-        final questionCount = (data['questionCount'] as num?)?.toInt() ?? 3;
-        final correctCount = (score * questionCount).round();
-        final band = BandCalculator.calculateBandFromRaw(
-          correctCount,
-          totalQuestions: questionCount,
-        );
-        final ts = data['timestamp'];
-        final date = ts != null ? ((ts as dynamic).toDate() as DateTime) : DateTime.now();
-        final pct = (score * 100).round();
-
-        final bandColor = band >= 7.5
-            ? Colors.green
-            : band >= 6.0
-                ? Colors.blue
-                : band >= 4.5
-                    ? Colors.orange
-                    : Colors.red;
-
-        return GlassContainer(
-          padding: const EdgeInsets.all(16),
+        final item = items[index];
+        return AppCard(
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: bandColor.withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  band.toStringAsFixed(1),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: bandColor,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
+              Icon(item.icon, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      data['title'] as String? ?? 'Generated Passage',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      item.value,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                    Text(
+                      item.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      DateFormat('MMM d, yyyy  •  h:mm a').format(date),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.45),
-                      ),
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                     ),
                   ],
-                ),
-              ),
-              Text(
-                '$pct%',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.5),
                 ),
               ),
             ],
@@ -326,34 +284,304 @@ class _HistoryList extends StatelessWidget {
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _WeakAreas extends StatelessWidget {
+  const _WeakAreas({required this.stats});
+
+  final ProgressStats stats;
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    if (stats.weakAreas.isEmpty) {
+      return const AppCard(
+        child: Text('Complete more reading questions to reveal weak areas.'),
+      );
+    }
+
+    return Column(
+      children: stats.weakAreas.map((area) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        area.label,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    Text('${(area.accuracy * 100).round()}%'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                AppProgressBar(value: area.accuracy),
+                const SizedBox(height: 6),
+                Text(
+                  '${area.attempts} attempts',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _BadgeGrid extends StatelessWidget {
+  const _BadgeGrid({required this.stats});
+
+  final ProgressStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: stats.badges.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.1,
+      ),
+      itemBuilder: (context, index) {
+        final badge = stats.badges[index];
+        return AppCard(
+          color: badge.unlocked
+              ? Theme.of(context).colorScheme.secondaryContainer
+              : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                badge.unlocked ? LucideIcons.badgeCheck : LucideIcons.lock,
+                color: badge.unlocked
+                    ? Theme.of(context).colorScheme.onSecondaryContainer
+                    : Theme.of(context).colorScheme.outline,
+              ),
+              const Spacer(),
+              Text(
+                badge.title,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                badge.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ActivityList extends StatelessWidget {
+  const _ActivityList({required this.stats});
+
+  final ProgressStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    if (stats.recentActivities.isEmpty) {
+      return const AppCard(child: Text('No activity yet.'));
+    }
+
+    return Column(
+      children: stats.recentActivities.map((activity) {
+        final icon = switch (activity.type) {
+          ProgressActivityType.reading => LucideIcons.bookOpen,
+          ProgressActivityType.writing => LucideIcons.penTool,
+          ProgressActivityType.vocabulary => LucideIcons.languages,
+          ProgressActivityType.synonyms => LucideIcons.shuffle,
+        };
+        final trailing = activity.band != null
+            ? 'Band ${activity.band!.toStringAsFixed(1)}'
+            : '+${activity.xp} XP';
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: AppCard(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
+                  child: Icon(
+                    icon,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        activity.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      Text(
+                        DateFormat('MMM d, h:mm a').format(activity.date),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  trailing,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _WhitePill extends StatelessWidget {
+  const _WhitePill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 14),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40),
+        padding: const EdgeInsets.all(36),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(LucideIcons.barChart2, size: 64,
-                color: theme.colorScheme.onSurface.withOpacity(0.15)),
-            const SizedBox(height: 24),
+            const Icon(LucideIcons.barChart3, size: 56),
+            const SizedBox(height: 18),
             Text(
-              'No Progress Yet',
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              'No progress yet',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Text(
-              'Complete a practice session to start tracking your band score.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
-              ),
+              'Complete reading, writing, vocabulary, or synonyms practice to start building your streak.',
               textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(LucideIcons.cloudOff, size: 48),
+            const SizedBox(height: 14),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(LucideIcons.refreshCw),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatItem {
+  const _StatItem(this.label, this.value, this.icon);
+
+  final String label;
+  final String value;
+  final IconData icon;
 }

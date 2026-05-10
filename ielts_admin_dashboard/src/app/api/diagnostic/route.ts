@@ -1,12 +1,13 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { requireAdmin } from '@/lib/admin-guard';
 
 const COL = 'shared_diagnostic_passages';
 
 async function tryGetAdminDb() {
   try {
-    return getAdminDb();
+    const { getAdminDb } = await import('@/lib/firebase-admin');
+    return await getAdminDb();
   } catch (err: any) {
     console.error('Failed to init admin:', err);
     return null;
@@ -17,13 +18,16 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unexpected error';
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   const db = await tryGetAdminDb();
   if (!db) return NextResponse.json({ data: [] });
 
   try {
     const snap = await db.collection(COL).orderBy('createdAt', 'desc').get();
-    const data = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const data = snap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json({ data });
   } catch (err: unknown) {
     console.warn('[diagnostic GET]', errorMessage(err));
@@ -32,6 +36,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   const db = await tryGetAdminDb();
   if (!db) return NextResponse.json({ error: 'DB unavailable' }, { status: 503 });
 
@@ -41,7 +48,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid diagnostic passage data' }, { status: 400 });
     }
 
-    const { FieldValue } = await import('firebase-admin/firestore');
+    const { getFieldValue } = await import('@/lib/firebase-admin');
+    const FieldValue = await getFieldValue();
 
     await db.collection(COL).doc(passage.id).set({
       ...passage,
@@ -56,6 +64,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin.ok) return admin.response;
+
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
@@ -71,4 +82,3 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: errorMessage(err) }, { status: 500 });
   }
 }
-
