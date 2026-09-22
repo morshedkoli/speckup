@@ -1,40 +1,32 @@
-# SpeakUp Reading — IELTS Reading Trainer
+# 🗣️ SpeakUp — IELTS Reading Preparation & Academic Assessment Suite
 
-Flutter + Firebase + Google Gemini. Bring-your-own-key, adaptive passages, and tap-to-define words with Bangla meanings.
+[![Platform](https://img.shields.io/badge/Platform-Flutter_|_Mobile-02569B?style=for-the-badge&logo=flutter)](https://flutter.dev/)
+[![Dashboard](https://img.shields.io/badge/Admin-Web_Dashboard-black?style=for-the-badge)](https://nextjs.org/)
+[![License](https://img.shields.io/badge/License-Proprietary-red?style=for-the-badge)](LICENSE)
 
-## Contents of this starter package
+An exam preparation ecosystem designed specifically for IELTS Academic & General Reading modules. Includes a cross-platform mobile practice application (`ielts_reading_app`) and an instructor administration dashboard (`ielts_admin_dashboard`).
 
-- **`SpeakUp_Reading_PRD.docx`** — complete product requirements document (21 sections)
-- **`CONTEXT.md`** — single source of truth for AI coding agents (Claude Code, Antigravity, Cursor)
-- **`scaffold_project.sh`** — one-shot script that creates the full folder tree with placeholder files so you can open it in an IDE and start building
+---
 
-## Quick start
+## 🌟 Modules
 
-```bash
-# 1. Create the project skeleton
-chmod +x scaffold_project.sh
-./scaffold_project.sh
+- **📱 IELTS Reading Mobile App**: Timed full-length practice tests, passage highlighting, vocabulary flashcards, and instant band score calculation.
+- **🛡️ Instructor Admin Dashboard**: Manage question banks, passage imports, student performance analytics, and custom test creation.
+- **📊 Detailed Band Analysis**: Breakdown of performance across True/False/Not Given, Matching Headings, and Multiple Choice questions.
 
-# 2. Move into the created folder
-cd ielts_reading_app
+---
 
-# 3. Create a Flutter project inside (keeps the skeleton, adds android/ios/etc.)
-flutter create --project-name ielts_reading_app --platforms=android --org com.morshed .
+## 📁 Repository Structure
 
-# 4. Open in your IDE of choice
-code .    # VS Code
-# or: android-studio .
-
-# 5. Point your AI agent at docs/PRD.docx and docs/CONTEXT.md, then say:
-#    "Read docs/PRD.docx and docs/CONTEXT.md, then scaffold M0."
+```plaintext
+speckup/
+├── ielts_reading_app/       # Flutter/Dart cross-platform mobile application
+├── ielts_admin_dashboard/   # Web-based test curation and analytics dashboard
+└── SpeakUp_Reading_PRD.docx # Product requirements and syllabus specification
 ```
 
-## Before writing code
+---
 
-1. Create a Firebase project and run `flutterfire configure`.
-2. Get a Gemini API key from https://aistudio.google.com (this is what each end-user will also do).
-3. Register SHA-1 of your debug keystore in Firebase for Google Sign-In.
+## 📄 License
 
-## Recommended AI agent kick-off prompt
-
-> Read `docs/PRD.docx` and `docs/CONTEXT.md` in full. Summarize back the 8 golden rules from CONTEXT.md to confirm understanding. Then implement milestone **M0** only: set up `pubspec.yaml`, configure Riverpod + GoRouter + Firebase init in `main.dart`, and create the theme. Stop and show me a diff.
+Proprietary — All rights reserved.
